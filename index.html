@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ukulele Chord Finder</title>
+<script src="https://cdn.jsdelivr.net/npm/tonal@6.2.0/browser/tonal.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/abcjs@6.4.4/dist/abcjs-basic-min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -117,8 +119,37 @@
     font-size: 0.85rem;
   }
 
+  #score-section {
+    margin-top: 1.2rem;
+    width: 100%;
+    max-width: 320px;
+    text-align: center;
+  }
+
+  #score {
+    background: #fff;
+    border-radius: 10px;
+    padding: 0.5rem 1rem;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+  }
+
+  #score svg {
+    max-width: 100%;
+  }
+
+  #notes-text {
+    margin-top: 0.6rem;
+    font-size: 0.85rem;
+    color: #aaa;
+    letter-spacing: 0.05em;
+  }
+
   @media (max-width: 360px) {
-    .root-grid, #quality-section, .section-label { max-width: 280px; }
+    .root-grid, #quality-section, .section-label, #score-section { max-width: 280px; }
     .category-grid { grid-template-columns: repeat(3, 1fr); }
   }
 </style>
@@ -135,6 +166,11 @@
 
 <div id="chord-display">
   <span class="placeholder">揀個 chord 睇下</span>
+</div>
+
+<div id="score-section" style="display:none;">
+  <div id="score"></div>
+  <div id="notes-text"></div>
 </div>
 
 <script>
@@ -234,10 +270,68 @@ CATEGORIES.forEach(cat => {
   qualitySection.appendChild(wrapper);
 });
 
+// Mapping from file-based quality names to Tonal-compatible symbols
+const TONAL_MAP = {
+  '': 'M', 'm': 'm', '5': '5', '7': '7', 'maj7': 'maj7', 'm7': 'm7',
+  'mMaj7': 'mM7', '9': '9', 'maj9': 'M9', 'm9': 'm9', '11': '11',
+  'm11': 'm11', '13': '13', 'm13': 'm13', 'sus2': 'sus2', 'sus4': 'sus4',
+  '7sus2': '7sus2', '7sus4': '7sus4', '6': '6', 'm6': 'm6', 'add9': 'add9',
+  'madd9': 'madd9', 'dim': 'dim', 'dim7': 'dim7', 'aug': 'aug',
+  'aug7': 'aug7', 'm7b5': 'm7b5',
+};
+
+function noteToAbc(note) {
+  // note is like "C4", "Eb5", "F#4", "Bb6"
+  let replaced = note.replace(/#/g, '^').replace(/b/g, '_');
+  // octave 5+ → lowercase note letter
+  if (/[56789]/.test(replaced)) {
+    replaced = replaced.replace(/[A-G]/, m => m.toLowerCase());
+  }
+  // Rearrange: move note letter to end, then put accidental prefix before it
+  let rearranged = replaced.substring(1) + replaced.charAt(0);
+  // octave 6 → add ' for extra octave
+  if (rearranged.includes('6')) rearranged += "'";
+  // Remove all digits
+  return rearranged.replace(/\d/g, '');
+}
+
+function renderScore(root, qualityFile) {
+  const scoreSection = document.getElementById('score-section');
+  const notesText = document.getElementById('notes-text');
+  const tonalQuality = TONAL_MAP[qualityFile];
+  if (tonalQuality === undefined) {
+    scoreSection.style.display = 'none';
+    return;
+  }
+
+  // Convert root: file uses 'b' for flat, Tonal also accepts 'b'
+  const chordSymbol = root + tonalQuality;
+  const result = Tonal.Chord.get(chordSymbol);
+  if (!result.tonic || result.empty) {
+    scoreSection.style.display = 'none';
+    return;
+  }
+
+  // Get chord with octave info (root at C4)
+  const withOctave = Tonal.Chord.getChord(result.aliases[0] || tonalQuality, result.tonic + '4');
+  if (!withOctave.notes || withOctave.notes.length === 0) {
+    scoreSection.style.display = 'none';
+    return;
+  }
+
+  const abcNotes = withOctave.notes.map(noteToAbc);
+  const abcSyntax = 'X:1\nK:C\n[' + abcNotes.join('8') + '8]';
+
+  scoreSection.style.display = '';
+  ABCJS.renderAbc('score', abcSyntax, { responsive: 'resize' });
+  notesText.textContent = result.notes.join(' · ');
+}
+
 function updateChord() {
   if (!selectedRoot || !selectedQuality) return;
   const filename = selectedRoot + selectedQuality.file + '.svg';
   display.innerHTML = `<img src="chords/${filename}" alt="${selectedRoot}${selectedQuality.label}">`;
+  renderScore(selectedRoot, selectedQuality.file);
 }
 </script>
 
