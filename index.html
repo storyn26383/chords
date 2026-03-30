@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ukulele Chord Finder</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem;
+  }
+
+  h1 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin-bottom: 1.8rem;
+    letter-spacing: 0.02em;
+  }
+
+  .section-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #888;
+    margin-bottom: 0.5rem;
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .root-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 1.5rem;
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .category {
+    width: 100%;
+    max-width: 320px;
+    margin-bottom: 0.6rem;
+  }
+
+  .category-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #666;
+    margin-bottom: 0.35rem;
+    padding-left: 2px;
+  }
+
+  .category-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+  }
+
+  .btn {
+    padding: 0.55rem 0;
+    border: 1px solid #333;
+    border-radius: 6px;
+    background: #16213e;
+    color: #ccc;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn:hover { background: #1a2a50; border-color: #555; }
+
+  .btn.active {
+    background: #e94560;
+    border-color: #e94560;
+    color: #fff;
+    font-weight: 600;
+  }
+
+  #quality-section {
+    width: 100%;
+    max-width: 320px;
+    margin-bottom: 1.8rem;
+  }
+
+  #chord-display {
+    margin-top: 0.5rem;
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    min-width: 140px;
+    min-height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+  }
+
+  #chord-display img {
+    width: 120px;
+    height: auto;
+  }
+
+  #chord-display .placeholder {
+    color: #aaa;
+    font-size: 0.85rem;
+  }
+
+  @media (max-width: 360px) {
+    .root-grid, #quality-section, .section-label { max-width: 280px; }
+    .category-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<h1>Ukulele Chords</h1>
+
+<div class="section-label">Root</div>
+<div class="root-grid" id="root-grid"></div>
+
+<div class="section-label">Quality</div>
+<div id="quality-section"></div>
+
+<div id="chord-display">
+  <span class="placeholder">揀個 chord 睇下</span>
+</div>
+
+<script>
+const ROOTS = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+
+const CATEGORIES = [
+  { name: 'Basic',     items: [
+    { file: '',      label: 'Major' },
+    { file: 'm',     label: 'm' },
+    { file: '5',     label: '5' },
+  ]},
+  { name: 'Seventh',   items: [
+    { file: '7',     label: '7' },
+    { file: 'maj7',  label: 'maj7' },
+    { file: 'm7',    label: 'm7' },
+    { file: 'mMaj7', label: 'mMaj7' },
+  ]},
+  { name: 'Extended',  items: [
+    { file: '9',     label: '9' },
+    { file: 'maj9',  label: 'maj9' },
+    { file: 'm9',    label: 'm9' },
+    { file: '11',    label: '11' },
+    { file: 'm11',   label: 'm11' },
+    { file: '13',    label: '13' },
+    { file: 'm13',   label: 'm13' },
+  ]},
+  { name: 'Suspended', items: [
+    { file: 'sus2',  label: 'sus2' },
+    { file: 'sus4',  label: 'sus4' },
+    { file: '7sus2', label: '7sus2' },
+    { file: '7sus4', label: '7sus4' },
+  ]},
+  { name: 'Added',     items: [
+    { file: '6',     label: '6' },
+    { file: 'm6',    label: 'm6' },
+    { file: 'add9',  label: 'add9' },
+    { file: 'madd9', label: 'madd9' },
+  ]},
+  { name: 'Altered',   items: [
+    { file: 'dim',   label: 'dim' },
+    { file: 'dim7',  label: 'dim7' },
+    { file: 'aug',   label: 'aug' },
+    { file: 'aug7',  label: 'aug7' },
+    { file: 'm7b5',  label: 'm7b5' },
+  ]},
+];
+
+let selectedRoot = null;
+let selectedQuality = null;
+
+const rootGrid = document.getElementById('root-grid');
+const qualitySection = document.getElementById('quality-section');
+const display = document.getElementById('chord-display');
+
+ROOTS.forEach(root => {
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.textContent = root;
+  btn.addEventListener('click', () => {
+    selectedRoot = root;
+    rootGrid.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    updateChord();
+  });
+  rootGrid.appendChild(btn);
+});
+
+const allQualityBtns = [];
+
+CATEGORIES.forEach(cat => {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'category';
+
+  const label = document.createElement('div');
+  label.className = 'category-label';
+  label.textContent = cat.name;
+  wrapper.appendChild(label);
+
+  const grid = document.createElement('div');
+  grid.className = 'category-grid';
+
+  cat.items.forEach(q => {
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.textContent = q.label;
+    btn.addEventListener('click', () => {
+      selectedQuality = q;
+      allQualityBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateChord();
+    });
+    grid.appendChild(btn);
+    allQualityBtns.push(btn);
+  });
+
+  wrapper.appendChild(grid);
+  qualitySection.appendChild(wrapper);
+});
+
+function updateChord() {
+  if (!selectedRoot || !selectedQuality) return;
+  const filename = selectedRoot + selectedQuality.file + '.svg';
+  display.innerHTML = `<img src="chords/${filename}" alt="${selectedRoot}${selectedQuality.label}">`;
+}
+</script>
+
+</body>
+</html>
