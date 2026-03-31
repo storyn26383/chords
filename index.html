@@ -210,11 +210,9 @@
 
 <div class="switches" id="switches"></div>
 
-<div id="chord-display">
-  <span class="placeholder">揀個 chord 睇下</span>
-</div>
+<div id="chord-display"></div>
 
-<div id="score-section" style="display:none;"></div>
+<div id="score-section"></div>
 
 <script>
 const CDN_URLS = {
@@ -519,10 +517,7 @@ function updateChord() {
   if (!selectedRoot || !selectedQuality) return;
   const key = selectedRoot.name + selectedQuality.id;
   const data = CHORDS[key];
-  if (!data) {
-    display.innerHTML = '<span class="placeholder">Chord not found</span>';
-    return;
-  }
+  if (!data) return;
   const rootDisplay = selectedRoot.label || selectedRoot.name;
   const chordName = selectedQuality.id === 'major' ? rootDisplay : rootDisplay + selectedQuality.label;
   display.innerHTML = `<div class="chord-name">${chordName}</div><uke-chord frets="${data.frets}" fingers="${data.fingers}" sub="${data.sub}" position="${data.position || 0}"></uke-chord>`;
