@@ -165,44 +165,42 @@
 const ROOTS = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
 
 const CATEGORIES = [
-  { name: 'Basic',     items: [
-    { file: '',      label: 'Maj' },
-    { file: 'm',     label: 'm' },
-    { file: '5',     label: '5' },
+  { name: 'Third',     items: [
+    { id: '',      label: 'Maj' },
+    { id: 'm',     label: 'm' },
+    { id: 'aug',   label: 'aug' },
+    { id: 'dim',   label: 'dim' },
   ]},
   { name: 'Seventh',   items: [
-    { file: '7',     label: '7' },
-    { file: 'maj7',  label: 'maj7' },
-    { file: 'm7',    label: 'm7' },
-    { file: 'mMaj7', label: 'mMaj7' },
-  ]},
-  { name: 'Extended',  items: [
-    { file: '9',     label: '9' },
-    { file: 'maj9',  label: 'maj9' },
-    { file: 'm9',    label: 'm9' },
-    { file: '11',    label: '11' },
-    { file: 'm11',   label: 'm11' },
-    { file: '13',    label: '13' },
-    { file: 'm13',   label: 'm13' },
+    { id: '7',     label: '7' },
+    { id: 'maj7',  label: 'maj7' },
+    { id: 'm7',    label: 'm7' },
+    { id: 'mMaj7', label: 'mMaj7' },
+    { id: 'm7b5',  label: 'm7b5' },
+    { id: 'aug7',  label: 'aug7' },
+    { id: 'dim7',  label: 'dim7' },
   ]},
   { name: 'Suspended', items: [
-    { file: 'sus2',  label: 'sus2' },
-    { file: 'sus4',  label: 'sus4' },
-    { file: '7sus2', label: '7sus2' },
-    { file: '7sus4', label: '7sus4' },
+    { id: 'sus2',  label: 'sus2' },
+    { id: 'sus4',  label: 'sus4' },
+    { id: '7sus2', label: '7sus2' },
+    { id: '7sus4', label: '7sus4' },
   ]},
   { name: 'Added',     items: [
-    { file: '6',     label: '6' },
-    { file: 'm6',    label: 'm6' },
-    { file: 'add9',  label: 'add9' },
-    { file: 'madd9', label: 'madd9' },
+    { id: '5',     label: '5' },
+    { id: '6',     label: '6' },
+    { id: 'm6',    label: 'm6' },
+    { id: 'add9',  label: 'add9' },
+    { id: 'madd9', label: 'madd9' },
   ]},
-  { name: 'Altered',   items: [
-    { file: 'dim',   label: 'dim' },
-    { file: 'dim7',  label: 'dim7' },
-    { file: 'aug',   label: 'aug' },
-    { file: 'aug7',  label: 'aug7' },
-    { file: 'm7b5',  label: 'm7b5' },
+  { name: 'Extended',  items: [
+    { id: '9',     label: '9' },
+    { id: 'maj9',  label: 'maj9' },
+    { id: 'm9',    label: 'm9' },
+    { id: '11',    label: '11' },
+    { id: 'm11',   label: 'm11' },
+    { id: '13',    label: '13' },
+    { id: 'm13',   label: 'm13' },
   ]},
 ];
 
@@ -317,15 +315,15 @@ function renderScore(root, qualityFile) {
 
 function updateChord() {
   if (!selectedRoot || !selectedQuality) return;
-  const key = selectedRoot + selectedQuality.file;
+  const key = selectedRoot + selectedQuality.id;
   const data = CHORDS[key];
   if (!data) {
     display.innerHTML = '<span class="placeholder">Chord not found</span>';
     return;
   }
-  const chordName = selectedQuality.file === '' ? selectedRoot : selectedRoot + selectedQuality.label;
+  const chordName = selectedQuality.id === '' ? selectedRoot : selectedRoot + selectedQuality.label;
   display.innerHTML = `<div class="chord-name">${chordName}</div><uke-chord frets="${data.frets}" fingers="${data.fingers}" sub="${data.sub}" position="${data.position || 0}"></uke-chord>`;
-  renderScore(selectedRoot, selectedQuality.file);
+  renderScore(selectedRoot, selectedQuality.id);
 }
 
 // Default to C Maj
