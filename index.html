@@ -200,7 +200,7 @@
 </head>
 <body>
 
-<h1>Ukulele Chords</h1>
+<h1>Ukulele / Guitar Chords</h1>
 
 <div class="section-label">Root</div>
 <div class="root-grid" id="root-grid"></div>
@@ -217,7 +217,13 @@
 <div id="score-section" style="display:none;"></div>
 
 <script>
-const CDN_URL = 'https://cdn.jsdelivr.net/npm/@tombatossals/chords-db/lib/ukulele.json';
+const CDN_URLS = {
+  ukulele: 'https://cdn.jsdelivr.net/npm/@tombatossals/chords-db/lib/ukulele.json',
+  guitar: 'https://cdn.jsdelivr.net/npm/@tombatossals/chords-db/lib/guitar.json',
+};
+const GUITAR_KEY_MAP = { 'Db': 'Csharp', 'Gb': 'Fsharp' };
+let currentInstrument = 'ukulele';
+const dbCache = {};
 
 const NOTES = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
 
@@ -280,10 +286,11 @@ let fullMode = false;
 let showScore = false;
 let allQualityBtns = [];
 
-function buildChordMap(db) {
+function buildChordMap(db, instrument) {
   CHORDS = {};
   for (const root of NOTES) {
-    const entries = db.chords[root];
+    const dbKey = instrument === 'guitar' ? (GUITAR_KEY_MAP[root] || root) : root;
+    const entries = db.chords[dbKey];
     if (!entries) continue;
     for (const entry of entries) {
       const pos = entry.positions[0];
@@ -292,7 +299,11 @@ function buildChordMap(db) {
       const frets = pos.frets.map(f => f === -1 ? 'x' : f).join('');
       const fingers = pos.fingers.join('');
       const position = pos.baseFret === 1 ? 0 : pos.baseFret;
-      const sub = pos.midi ? pos.midi.map(m => NOTES[m % 12]).join(',') : '';
+      let sub = '';
+      if (pos.midi) {
+        let mi = 0;
+        sub = pos.frets.map(f => f === -1 ? '_' : NOTES[pos.midi[mi++] % 12]).join(',');
+      }
 
       CHORDS[root + entry.suffix] = { frets, fingers, position, sub };
     }
@@ -365,6 +376,11 @@ const scoreSwitch = createSwitch('Score', showScore, val => {
   }
 });
 
+const guitarSwitch = createSwitch('Guitar', false, val => {
+  switchInstrument(val ? 'guitar' : 'ukulele');
+});
+
+switchesEl.appendChild(guitarSwitch);
 switchesEl.appendChild(fullModeSwitch);
 switchesEl.appendChild(scoreSwitch);
 
@@ -493,20 +509,36 @@ function updateChord() {
   renderScore(selectedRoot, selectedQuality.id);
 }
 
-// Fetch chord data and init
-fetch(CDN_URL)
-  .then(r => r.json())
-  .then(db => {
-    buildChordMap(db);
+async function fetchDb(instrument) {
+  if (dbCache[instrument]) return dbCache[instrument];
+  const res = await fetch(CDN_URLS[instrument]);
+  const db = await res.json();
+  dbCache[instrument] = db;
+  return db;
+}
+
+async function switchInstrument(instrument) {
+  currentInstrument = instrument;
+  document.title = instrument === 'guitar' ? 'Guitar Chord Finder' : 'Ukulele Chord Finder';
+  const db = await fetchDb(instrument);
+  buildChordMap(db, instrument);
+  updateChord();
+}
+
+// Init
+(async () => {
+  try {
+    const db = await fetchDb('ukulele');
+    buildChordMap(db, 'ukulele');
     selectedRoot = ROOTS[0];
     selectedQuality = CATEGORIES[0].items[0];
     renderRoots();
     renderQualities();
     updateChord();
-  })
-  .catch(() => {
+  } catch {
     display.innerHTML = '<span class="placeholder">Failed to load chord data</span>';
-  });
+  }
+})();
 </script>
 
 </body>
