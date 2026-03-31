@@ -132,10 +132,13 @@
     background: #fff;
     color: #000;
     border-radius: 0.625rem;
-    padding: 0 6rem;
+    padding: 1.5rem 2rem;
     box-shadow: 0 0.25rem 1.5rem rgba(0,0,0,0.3);
     overflow: hidden;
+    display: flex;
+    justify-content: center;
   }
+
 
   .switches {
     width: 100%;
@@ -212,9 +215,7 @@
   <span class="placeholder">揀個 chord 睇下</span>
 </div>
 
-<div id="score-section" style="display:none;">
-  <div id="score"></div>
-</div>
+<div id="score-section" style="display:none;"></div>
 
 <script>
 const ROOTS = [
@@ -338,7 +339,7 @@ const fullModeSwitch = createSwitch('All chords', fullMode, val => {
 const scoreSwitch = createSwitch('Score', showScore, val => {
   showScore = val;
   if (showScore && selectedRoot && selectedQuality) {
-    renderScore(selectedRoot.name, selectedQuality.id);
+    renderScore(selectedRoot, selectedQuality.id);
   } else {
     document.getElementById('score-section').style.display = 'none';
   }
@@ -421,7 +422,7 @@ function noteToAbc(note) {
   return rearranged.replace(/\d/g, '');
 }
 
-function renderScore(root, qualityFile) {
+function renderScore(rootObj, qualityFile) {
   const scoreSection = document.getElementById('score-section');
   if (!showScore) {
     scoreSection.style.display = 'none';
@@ -433,24 +434,29 @@ function renderScore(root, qualityFile) {
     return;
   }
 
-  const chordSymbol = root + tonalQuality;
-  const result = Tonal.Chord.get(chordSymbol);
-  if (!result.tonic || result.empty) {
-    scoreSection.style.display = 'none';
-    return;
-  }
+  const roots = rootObj.label ? rootObj.label.split('/') : [rootObj.name];
 
-  const withOctave = Tonal.Chord.getChord(result.aliases[0] || tonalQuality, result.tonic + '4');
-  if (!withOctave.notes || withOctave.notes.length === 0) {
-    scoreSection.style.display = 'none';
-    return;
-  }
+  scoreSection.innerHTML = '';
+  let anyRendered = false;
 
-  const abcNotes = withOctave.notes.map(noteToAbc);
-  const abcSyntax = 'X:1\nK:C\n[' + abcNotes.join('8') + '8]';
+  roots.forEach(root => {
+    const chordSymbol = root + tonalQuality;
+    const result = Tonal.Chord.get(chordSymbol);
+    if (!result.tonic || result.empty) return;
 
-  scoreSection.style.display = '';
-  ABCJS.renderAbc('score', abcSyntax, { responsive: 'resize', staffwidth: 80 });
+    const withOctave = Tonal.Chord.getChord(result.aliases[0] || tonalQuality, result.tonic + '4');
+    if (!withOctave.notes || withOctave.notes.length === 0) return;
+
+    const abcNotes = withOctave.notes.map(noteToAbc);
+    const abcSyntax = 'X:1\nK:C\n[' + abcNotes.join('8') + '8]';
+
+    const div = document.createElement('div');
+    scoreSection.appendChild(div);
+    ABCJS.renderAbc(div, abcSyntax, { staffwidth: 100 });
+    anyRendered = true;
+  });
+
+  scoreSection.style.display = anyRendered ? '' : 'none';
 }
 
 function updateChord() {
@@ -464,7 +470,7 @@ function updateChord() {
   const rootDisplay = selectedRoot.label || selectedRoot.name;
   const chordName = selectedQuality.id === '' ? rootDisplay : rootDisplay + selectedQuality.label;
   display.innerHTML = `<div class="chord-name">${chordName}</div><uke-chord frets="${data.frets}" fingers="${data.fingers}" sub="${data.sub}" position="${data.position || 0}"></uke-chord>`;
-  renderScore(selectedRoot.name, selectedQuality.id);
+  renderScore(selectedRoot, selectedQuality.id);
 }
 
 // Default to C Maj
