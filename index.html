@@ -7,7 +7,6 @@
 <script src="https://cdn.jsdelivr.net/npm/tonal@6.2.0/browser/tonal.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/abcjs@6.4.4/dist/abcjs-basic-min.js"></script>
 <script src="https://pianosnake.github.io/uke-chord/uke-chord.js"></script>
-<script src="chords.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -218,6 +217,10 @@
 <div id="score-section" style="display:none;"></div>
 
 <script>
+const CDN_URL = 'https://cdn.jsdelivr.net/npm/@tombatossals/chords-db/lib/ukulele.json';
+
+const NOTES = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+
 const ROOTS = [
   { name: 'C',  common: true },
   { name: 'Db', label: 'C#/Db' },
@@ -235,8 +238,8 @@ const ROOTS = [
 
 const CATEGORIES = [
   { name: 'Third',     items: [
-    { id: '',      label: 'Maj',   common: true },
-    { id: 'm',     label: 'm',     common: true },
+    { id: 'major', label: 'Maj',   common: true },
+    { id: 'minor', label: 'm',     common: true },
     { id: 'aug',   label: 'aug' },
     { id: 'dim',   label: 'dim' },
   ]},
@@ -244,7 +247,7 @@ const CATEGORIES = [
     { id: '7',     label: '7',     common: true },
     { id: 'maj7',  label: 'maj7',  common: true },
     { id: 'm7',    label: 'm7',    common: true },
-    { id: 'mMaj7', label: 'mMaj7' },
+    { id: 'mmaj7', label: 'mMaj7' },
     { id: 'm7b5',  label: 'm7b5' },
     { id: 'aug7',  label: 'aug7' },
     { id: 'dim7',  label: 'dim7' },
@@ -252,11 +255,9 @@ const CATEGORIES = [
   { name: 'Suspended', items: [
     { id: 'sus2',  label: 'sus2' },
     { id: 'sus4',  label: 'sus4' },
-    { id: '7sus2', label: '7sus2' },
     { id: '7sus4', label: '7sus4' },
   ]},
   { name: 'Added',     items: [
-    { id: '5',     label: '5' },
     { id: '6',     label: '6' },
     { id: 'm6',    label: 'm6' },
     { id: 'add9',  label: 'add9' },
@@ -269,15 +270,34 @@ const CATEGORIES = [
     { id: '11',    label: '11' },
     { id: 'm11',   label: 'm11' },
     { id: '13',    label: '13' },
-    { id: 'm13',   label: 'm13' },
   ]},
 ];
 
+let CHORDS = {};
 let selectedRoot = null;
 let selectedQuality = null;
 let fullMode = false;
 let showScore = false;
 let allQualityBtns = [];
+
+function buildChordMap(db) {
+  CHORDS = {};
+  for (const root of NOTES) {
+    const entries = db.chords[root];
+    if (!entries) continue;
+    for (const entry of entries) {
+      const pos = entry.positions[0];
+      if (!pos) continue;
+
+      const frets = pos.frets.map(f => f === -1 ? 'x' : f).join('');
+      const fingers = pos.fingers.join('');
+      const position = pos.baseFret === 1 ? 0 : pos.baseFret;
+      const sub = pos.midi ? pos.midi.map(m => NOTES[m % 12]).join(',') : '';
+
+      CHORDS[root + entry.suffix] = { frets, fingers, position, sub };
+    }
+  }
+}
 
 const rootGrid = document.getElementById('root-grid');
 const qualitySection = document.getElementById('quality-section');
@@ -399,10 +419,10 @@ function renderQualities() {
 
 // Mapping from file-based quality names to Tonal-compatible symbols
 const TONAL_MAP = {
-  '': 'M', 'm': 'm', '5': '5', '7': '7', 'maj7': 'maj7', 'm7': 'm7',
-  'mMaj7': 'mM7', '9': '9', 'maj9': 'M9', 'm9': 'm9', '11': '11',
-  'm11': 'm11', '13': '13', 'm13': 'm13', 'sus2': 'sus2', 'sus4': 'sus4',
-  '7sus2': '7sus2', '7sus4': '7sus4', '6': '6', 'm6': 'm6', 'add9': 'add9',
+  'major': 'M', 'minor': 'm', '7': '7', 'maj7': 'maj7', 'm7': 'm7',
+  'mmaj7': 'mM7', '9': '9', 'maj9': 'M9', 'm9': 'm9', '11': '11',
+  'm11': 'm11', '13': '13', 'sus2': 'sus2', 'sus4': 'sus4',
+  '7sus4': '7sus4', '6': '6', 'm6': 'm6', 'add9': 'add9',
   'madd9': 'madd9', 'dim': 'dim', 'dim7': 'dim7', 'aug': 'aug',
   'aug7': 'aug7', 'm7b5': 'm7b5',
 };
@@ -468,17 +488,25 @@ function updateChord() {
     return;
   }
   const rootDisplay = selectedRoot.label || selectedRoot.name;
-  const chordName = selectedQuality.id === '' ? rootDisplay : rootDisplay + selectedQuality.label;
+  const chordName = selectedQuality.id === 'major' ? rootDisplay : rootDisplay + selectedQuality.label;
   display.innerHTML = `<div class="chord-name">${chordName}</div><uke-chord frets="${data.frets}" fingers="${data.fingers}" sub="${data.sub}" position="${data.position || 0}"></uke-chord>`;
   renderScore(selectedRoot, selectedQuality.id);
 }
 
-// Default to C Maj
-selectedRoot = ROOTS[0];
-selectedQuality = CATEGORIES[0].items[0];
-renderRoots();
-renderQualities();
-updateChord();
+// Fetch chord data and init
+fetch(CDN_URL)
+  .then(r => r.json())
+  .then(db => {
+    buildChordMap(db);
+    selectedRoot = ROOTS[0];
+    selectedQuality = CATEGORIES[0].items[0];
+    renderRoots();
+    renderQualities();
+    updateChord();
+  })
+  .catch(() => {
+    display.innerHTML = '<span class="placeholder">Failed to load chord data</span>';
+  });
 </script>
 
 </body>
