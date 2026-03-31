@@ -219,16 +219,16 @@
 <script>
 const ROOTS = [
   { name: 'C',  common: true },
-  { name: 'Db' },
+  { name: 'Db', label: 'C#/Db' },
   { name: 'D',  common: true },
-  { name: 'Eb' },
+  { name: 'Eb', label: 'D#/Eb' },
   { name: 'E',  common: true },
   { name: 'F',  common: true },
-  { name: 'Gb' },
+  { name: 'Gb', label: 'F#/Gb' },
   { name: 'G',  common: true },
-  { name: 'Ab' },
+  { name: 'Ab', label: 'G#/Ab' },
   { name: 'A',  common: true },
-  { name: 'Bb' },
+  { name: 'Bb', label: 'A#/Bb' },
   { name: 'B' },
 ];
 
@@ -290,13 +290,13 @@ function renderRoots() {
   visibleRoots.forEach(r => {
     const btn = document.createElement('button');
     btn.className = 'btn';
-    btn.textContent = r.name;
-    if (selectedRoot === r.name) {
+    btn.textContent = r.label || r.name;
+    if (selectedRoot && selectedRoot.name === r.name) {
       btn.classList.add('active');
       selectedStillVisible = true;
     }
     btn.addEventListener('click', () => {
-      selectedRoot = r.name;
+      selectedRoot = r;
       rootGrid.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       if (!selectedQuality) {
@@ -309,7 +309,7 @@ function renderRoots() {
   });
 
   if (!selectedStillVisible && selectedRoot) {
-    selectedRoot = visibleRoots[0].name;
+    selectedRoot = visibleRoots[0];
     rootGrid.querySelector('.btn').classList.add('active');
     updateChord();
   }
@@ -338,7 +338,7 @@ const fullModeSwitch = createSwitch('All chords', fullMode, val => {
 const scoreSwitch = createSwitch('Score', showScore, val => {
   showScore = val;
   if (showScore && selectedRoot && selectedQuality) {
-    renderScore(selectedRoot, selectedQuality.id);
+    renderScore(selectedRoot.name, selectedQuality.id);
   } else {
     document.getElementById('score-section').style.display = 'none';
   }
@@ -455,19 +455,20 @@ function renderScore(root, qualityFile) {
 
 function updateChord() {
   if (!selectedRoot || !selectedQuality) return;
-  const key = selectedRoot + selectedQuality.id;
+  const key = selectedRoot.name + selectedQuality.id;
   const data = CHORDS[key];
   if (!data) {
     display.innerHTML = '<span class="placeholder">Chord not found</span>';
     return;
   }
-  const chordName = selectedQuality.id === '' ? selectedRoot : selectedRoot + selectedQuality.label;
+  const rootDisplay = selectedRoot.label || selectedRoot.name;
+  const chordName = selectedQuality.id === '' ? rootDisplay : rootDisplay + selectedQuality.label;
   display.innerHTML = `<div class="chord-name">${chordName}</div><uke-chord frets="${data.frets}" fingers="${data.fingers}" sub="${data.sub}" position="${data.position || 0}"></uke-chord>`;
-  renderScore(selectedRoot, selectedQuality.id);
+  renderScore(selectedRoot.name, selectedQuality.id);
 }
 
 // Default to C Maj
-selectedRoot = 'C';
+selectedRoot = ROOTS[0];
 selectedQuality = CATEGORIES[0].items[0];
 renderRoots();
 renderQualities();
