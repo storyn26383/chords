@@ -6,6 +6,8 @@
 <title>Ukulele Chord Finder</title>
 <script src="https://cdn.jsdelivr.net/npm/tonal@6.2.0/browser/tonal.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/abcjs@6.4.4/dist/abcjs-basic-min.js"></script>
+<script src="https://pianosnake.github.io/uke-chord/uke-chord.js"></script>
+<script src="chords.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -103,16 +105,18 @@
     padding: 1.5rem 2rem;
     width: 100%;
     max-width: 20rem;
-    height: 14rem;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     box-shadow: 0 0.25rem 1.5rem rgba(0,0,0,0.3);
   }
 
-  #chord-display img {
-    width: 7.5rem;
-    height: auto;
+  .chord-name {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: #000;
+    margin-bottom: 0.5rem;
   }
 
   #chord-display .placeholder {
@@ -313,8 +317,14 @@ function renderScore(root, qualityFile) {
 
 function updateChord() {
   if (!selectedRoot || !selectedQuality) return;
-  const filename = selectedRoot + selectedQuality.file + '.svg';
-  display.innerHTML = `<img src="chords/${filename}" alt="${selectedRoot}${selectedQuality.label}">`;
+  const key = selectedRoot + selectedQuality.file;
+  const data = CHORDS[key];
+  if (!data) {
+    display.innerHTML = '<span class="placeholder">Chord not found</span>';
+    return;
+  }
+  const chordName = selectedQuality.file === '' ? selectedRoot : selectedRoot + selectedQuality.label;
+  display.innerHTML = `<div class="chord-name">${chordName}</div><uke-chord frets="${data.frets}" fingers="${data.fingers}" sub="${data.sub}" position="${data.position || 0}"></uke-chord>`;
   renderScore(selectedRoot, selectedQuality.file);
 }
 
