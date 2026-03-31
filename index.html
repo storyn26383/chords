@@ -137,6 +137,59 @@
     overflow: hidden;
   }
 
+  .switches {
+    width: 100%;
+    max-width: 20rem;
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .switch-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .switch-item span {
+    font-size: 0.75rem;
+    color: #888;
+  }
+
+  .switch-track {
+    width: 2rem;
+    height: 1.125rem;
+    border-radius: 0.5625rem;
+    background: #333;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+
+  .switch-track::after {
+    content: '';
+    position: absolute;
+    top: 0.125rem;
+    left: 0.125rem;
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: 50%;
+    background: #888;
+    transition: transform 0.2s, background 0.2s;
+  }
+
+  .switch-item.active .switch-track {
+    background: #e94560;
+  }
+
+  .switch-item.active .switch-track::after {
+    transform: translateX(0.875rem);
+    background: #fff;
+  }
+
   @media (max-width: 360px) {
     .root-grid, #quality-section, .section-label, #score-section { max-width: 17.5rem; }
     .category-grid { grid-template-columns: repeat(3, 1fr); }
@@ -153,6 +206,8 @@
 <div class="section-label">Quality</div>
 <div id="quality-section"></div>
 
+<div class="switches" id="switches"></div>
+
 <div id="chord-display">
   <span class="placeholder">揀個 chord 睇下</span>
 </div>
@@ -162,19 +217,32 @@
 </div>
 
 <script>
-const ROOTS = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const ROOTS = [
+  { name: 'C',  common: true },
+  { name: 'Db' },
+  { name: 'D',  common: true },
+  { name: 'Eb' },
+  { name: 'E',  common: true },
+  { name: 'F',  common: true },
+  { name: 'Gb' },
+  { name: 'G',  common: true },
+  { name: 'Ab' },
+  { name: 'A',  common: true },
+  { name: 'Bb' },
+  { name: 'B' },
+];
 
 const CATEGORIES = [
   { name: 'Third',     items: [
-    { id: '',      label: 'Maj' },
-    { id: 'm',     label: 'm' },
+    { id: '',      label: 'Maj',   common: true },
+    { id: 'm',     label: 'm',     common: true },
     { id: 'aug',   label: 'aug' },
     { id: 'dim',   label: 'dim' },
   ]},
   { name: 'Seventh',   items: [
-    { id: '7',     label: '7' },
-    { id: 'maj7',  label: 'maj7' },
-    { id: 'm7',    label: 'm7' },
+    { id: '7',     label: '7',     common: true },
+    { id: 'maj7',  label: 'maj7',  common: true },
+    { id: 'm7',    label: 'm7',    common: true },
     { id: 'mMaj7', label: 'mMaj7' },
     { id: 'm7b5',  label: 'm7b5' },
     { id: 'aug7',  label: 'aug7' },
@@ -206,59 +274,127 @@ const CATEGORIES = [
 
 let selectedRoot = null;
 let selectedQuality = null;
+let fullMode = false;
+let showScore = false;
+let allQualityBtns = [];
 
 const rootGrid = document.getElementById('root-grid');
 const qualitySection = document.getElementById('quality-section');
 const display = document.getElementById('chord-display');
 
-ROOTS.forEach(root => {
-  const btn = document.createElement('button');
-  btn.className = 'btn';
-  btn.textContent = root;
-  btn.addEventListener('click', () => {
-    selectedRoot = root;
-    rootGrid.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    if (!selectedQuality) {
-      selectedQuality = CATEGORIES[0].items[0];
-      allQualityBtns[0].classList.add('active');
-    }
-    updateChord();
-  });
-  rootGrid.appendChild(btn);
-});
+function renderRoots() {
+  rootGrid.innerHTML = '';
+  const visibleRoots = fullMode ? ROOTS : ROOTS.filter(r => r.common);
+  let selectedStillVisible = false;
 
-const allQualityBtns = [];
-
-CATEGORIES.forEach(cat => {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'category';
-
-  const label = document.createElement('div');
-  label.className = 'category-label';
-  label.textContent = cat.name;
-  wrapper.appendChild(label);
-
-  const grid = document.createElement('div');
-  grid.className = 'category-grid';
-
-  cat.items.forEach(q => {
+  visibleRoots.forEach(r => {
     const btn = document.createElement('button');
     btn.className = 'btn';
-    btn.textContent = q.label;
-    btn.addEventListener('click', () => {
-      selectedQuality = q;
-      allQualityBtns.forEach(b => b.classList.remove('active'));
+    btn.textContent = r.name;
+    if (selectedRoot === r.name) {
       btn.classList.add('active');
+      selectedStillVisible = true;
+    }
+    btn.addEventListener('click', () => {
+      selectedRoot = r.name;
+      rootGrid.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (!selectedQuality) {
+        selectedQuality = CATEGORIES[0].items[0];
+        allQualityBtns[0].classList.add('active');
+      }
       updateChord();
     });
-    grid.appendChild(btn);
-    allQualityBtns.push(btn);
+    rootGrid.appendChild(btn);
   });
 
-  wrapper.appendChild(grid);
-  qualitySection.appendChild(wrapper);
+  if (!selectedStillVisible && selectedRoot) {
+    selectedRoot = visibleRoots[0].name;
+    rootGrid.querySelector('.btn').classList.add('active');
+    updateChord();
+  }
+}
+
+const switchesEl = document.getElementById('switches');
+
+function createSwitch(label, active, onChange) {
+  const item = document.createElement('label');
+  item.className = 'switch-item' + (active ? ' active' : '');
+  item.innerHTML = `<div class="switch-track"></div><span>${label}</span>`;
+  item.addEventListener('click', () => {
+    const next = !item.classList.contains('active');
+    item.classList.toggle('active', next);
+    onChange(next);
+  });
+  return item;
+}
+
+const fullModeSwitch = createSwitch('All chords', fullMode, val => {
+  fullMode = val;
+  renderRoots();
+  renderQualities();
 });
+
+const scoreSwitch = createSwitch('Score', showScore, val => {
+  showScore = val;
+  if (showScore && selectedRoot && selectedQuality) {
+    renderScore(selectedRoot, selectedQuality.id);
+  } else {
+    document.getElementById('score-section').style.display = 'none';
+  }
+});
+
+switchesEl.appendChild(fullModeSwitch);
+switchesEl.appendChild(scoreSwitch);
+
+function renderQualities() {
+  qualitySection.innerHTML = '';
+  allQualityBtns = [];
+  let selectedStillVisible = false;
+
+  CATEGORIES.forEach(cat => {
+    const visibleItems = fullMode ? cat.items : cat.items.filter(q => q.common);
+    if (visibleItems.length === 0) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'category';
+
+    const label = document.createElement('div');
+    label.className = 'category-label';
+    label.textContent = cat.name;
+    wrapper.appendChild(label);
+
+    const grid = document.createElement('div');
+    grid.className = 'category-grid';
+
+    visibleItems.forEach(q => {
+      const btn = document.createElement('button');
+      btn.className = 'btn';
+      btn.textContent = q.label;
+      if (selectedQuality && selectedQuality.id === q.id) {
+        btn.classList.add('active');
+        selectedStillVisible = true;
+      }
+      btn.addEventListener('click', () => {
+        selectedQuality = q;
+        allQualityBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        updateChord();
+      });
+      grid.appendChild(btn);
+      allQualityBtns.push(btn);
+    });
+
+    wrapper.appendChild(grid);
+    qualitySection.appendChild(wrapper);
+  });
+
+  if (!selectedStillVisible && allQualityBtns.length > 0) {
+    allQualityBtns[0].classList.add('active');
+    selectedQuality = CATEGORIES.flatMap(c => fullMode ? c.items : c.items.filter(q => q.common))[0];
+    if (selectedRoot) updateChord();
+  }
+}
 
 // Mapping from file-based quality names to Tonal-compatible symbols
 const TONAL_MAP = {
@@ -287,6 +423,10 @@ function noteToAbc(note) {
 
 function renderScore(root, qualityFile) {
   const scoreSection = document.getElementById('score-section');
+  if (!showScore) {
+    scoreSection.style.display = 'none';
+    return;
+  }
   const tonalQuality = TONAL_MAP[qualityFile];
   if (tonalQuality === undefined) {
     scoreSection.style.display = 'none';
@@ -327,10 +467,10 @@ function updateChord() {
 }
 
 // Default to C Maj
-rootGrid.querySelector('.btn').classList.add('active');
 selectedRoot = 'C';
 selectedQuality = CATEGORIES[0].items[0];
-allQualityBtns[0].classList.add('active');
+renderRoots();
+renderQualities();
 updateChord();
 </script>
 
