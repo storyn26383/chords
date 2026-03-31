@@ -320,6 +320,13 @@ function updateChord() {
   display.innerHTML = `<img src="chords/${filename}" alt="${selectedRoot}${selectedQuality.label}">`;
   renderScore(selectedRoot, selectedQuality.file);
 }
+
+// Default to C Maj
+rootGrid.querySelector('.btn').classList.add('active');
+selectedRoot = 'C';
+selectedQuality = CATEGORIES[0].items[0];
+allQualityBtns[0].classList.add('active');
+updateChord();
 </script>
 
 </body>
