@@ -279,6 +279,22 @@ const CATEGORIES = [
   ]},
 ];
 
+const STORAGE_KEY = 'uke-chord-state';
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    instrument: currentInstrument,
+    root: selectedRoot?.name,
+    quality: selectedQuality?.id,
+    fullMode,
+    showScore,
+  }));
+}
+
+function loadState() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+}
+
 let CHORDS = {};
 let selectedRoot = null;
 let selectedQuality = null;
@@ -336,6 +352,7 @@ function renderRoots() {
         allQualityBtns[0].classList.add('active');
       }
       updateChord();
+      saveState();
     });
     rootGrid.appendChild(btn);
   });
@@ -365,6 +382,7 @@ const fullModeSwitch = createSwitch('All chords', fullMode, val => {
   fullMode = val;
   renderRoots();
   renderQualities();
+  saveState();
 });
 
 const scoreSwitch = createSwitch('Score', showScore, val => {
@@ -374,9 +392,10 @@ const scoreSwitch = createSwitch('Score', showScore, val => {
   } else {
     document.getElementById('score-section').style.display = 'none';
   }
+  saveState();
 });
 
-const guitarSwitch = createSwitch('Guitar', false, val => {
+const guitarSwitch = createSwitch('Guitar', currentInstrument === 'guitar', val => {
   switchInstrument(val ? 'guitar' : 'ukulele');
 });
 
@@ -417,6 +436,7 @@ function renderQualities() {
         allQualityBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         updateChord();
+        saveState();
       });
       grid.appendChild(btn);
       allQualityBtns.push(btn);
@@ -523,15 +543,37 @@ async function switchInstrument(instrument) {
   const db = await fetchDb(instrument);
   buildChordMap(db, instrument);
   updateChord();
+  saveState();
 }
 
 // Init
 (async () => {
   try {
-    const db = await fetchDb('ukulele');
-    buildChordMap(db, 'ukulele');
-    selectedRoot = ROOTS[0];
-    selectedQuality = CATEGORIES[0].items[0];
+    const saved = loadState();
+
+    if (saved.fullMode) {
+      fullMode = true;
+      fullModeSwitch.classList.add('active');
+    }
+    if (saved.showScore) {
+      showScore = true;
+      scoreSwitch.classList.add('active');
+    }
+
+    const instrument = saved.instrument || 'ukulele';
+    currentInstrument = instrument;
+    if (instrument === 'guitar') {
+      guitarSwitch.classList.add('active');
+      document.title = 'Guitar Chord Finder';
+    }
+
+    const db = await fetchDb(instrument);
+    buildChordMap(db, instrument);
+
+    const allItems = CATEGORIES.flatMap(c => c.items);
+    selectedRoot = ROOTS.find(r => r.name === saved.root) || ROOTS[0];
+    selectedQuality = allItems.find(q => q.id === saved.quality) || CATEGORIES[0].items[0];
+
     renderRoots();
     renderQualities();
     updateChord();
