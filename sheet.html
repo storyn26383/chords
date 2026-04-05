@@ -13,7 +13,7 @@
 
   .subtitle {
     font-size: 0.9rem;
-    color: #888;
+    color: var(--text-muted);
   }
 
   body {
@@ -60,7 +60,7 @@
   #viewer .label {
     font-size: 1.25em;
     font-weight: 700;
-    color: #888;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
@@ -102,10 +102,10 @@
   .font-size-controls button {
     width: 2rem;
     height: 2rem;
-    border: 1px solid #333;
+    border: 1px solid var(--border);
     border-radius: 0.375rem;
-    background: #16213e;
-    color: #ccc;
+    background: var(--surface);
+    color: var(--text-secondary);
     font-size: 1rem;
     cursor: pointer;
     display: flex;
@@ -116,12 +116,12 @@
   }
 
   .font-size-controls button:hover {
-    background: #1a2a50;
-    border-color: #555;
+    background: var(--surface-hover);
+    border-color: var(--border-hover);
   }
 
   .placeholder {
-    color: #888;
+    color: var(--text-muted);
     font-size: 0.9rem;
     text-align: center;
     padding: 2rem;

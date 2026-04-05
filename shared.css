@@ -1,8 +1,18 @@
 :root {
   --bg: #1a1a2e;
   --text: #eee;
+  --text-secondary: #ccc;
+  --text-muted: #888;
   --accent: #e94560;
+  --accent-hover: #d63b54;
+  --surface: #16213e;
+  --surface-hover: #1a2a50;
+  --border: #333;
+  --border-hover: #555;
+  --text-dim: #666;
+  --text-placeholder: #aaa;
   --card-bg: #fff;
+  --card-text: #000;
   --card-shadow: rgba(0, 0, 0, 0.3);
 }
 
