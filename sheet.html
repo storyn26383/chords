@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chord Sheet</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .title-group {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+    color: #888;
+  }
+
+  body {
+    padding-top: 4.5rem;
+  }
+
+  #viewer {
+    width: 100%;
+    max-width: 40rem;
+    line-height: 1.6;
+    overflow-x: auto;
+  }
+
+  #viewer .row {
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 0.5em;
+  }
+
+  #viewer .row:last-child {
+    margin-bottom: 0;
+  }
+
+  #viewer .chord {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.85em;
+  }
+
+  #viewer .chord.spaced {
+    margin-right: 1em;
+  }
+
+  #viewer .chord:after,
+  #viewer .lyrics:after {
+    content: '\200b';
+  }
+
+  #viewer h1.title {
+    display: none;
+  }
+
+  #viewer .comment,
+  #viewer .label {
+    font-size: 1.25em;
+    font-weight: 700;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  #viewer .paragraph {
+    margin-bottom: 1em;
+  }
+
+  #viewer .paragraph:last-child {
+    margin-bottom: 0;
+  }
+
+  .top-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: var(--bg);
+    z-index: 10;
+  }
+
+  .top-bar h1 {
+    margin-bottom: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .font-size-controls {
+    display: flex;
+    gap: 0.375rem;
+    flex-shrink: 0;
+  }
+
+  .font-size-controls button {
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid #333;
+    border-radius: 0.375rem;
+    background: #16213e;
+    color: #ccc;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .font-size-controls button:hover {
+    background: #1a2a50;
+    border-color: #555;
+  }
+
+  .placeholder {
+    color: #888;
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 2rem;
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chordsheetjs@14.3.1/lib/bundle.min.js"></script>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="title-group">
+    <h1 id="song-title">Chord Sheet</h1>
+    <div class="subtitle" id="subtitle"></div>
+  </div>
+  <div class="font-size-controls">
+    <button id="font-decrease">&minus;</button>
+    <button id="font-increase">+</button>
+  </div>
+</div>
+<div id="viewer"></div>
+
+<script>
+const viewer = document.getElementById('viewer');
+const titleEl = document.getElementById('song-title');
+const subtitleEl = document.getElementById('subtitle');
+
+function decodeBase64UTF8(b64) {
+  const standard = b64.replace(/-/g, '+').replace(/_/g, '/');
+  return decodeURIComponent(escape(atob(standard)));
+}
+
+function render() {
+  const params = new URLSearchParams(window.location.search);
+  const data = params.get('data');
+
+  if (!data) {
+    viewer.innerHTML = '<div class="placeholder">No chord sheet data provided.</div>';
+    return;
+  }
+
+  let decoded;
+  try {
+    decoded = decodeBase64UTF8(data);
+  } catch {
+    viewer.innerHTML = '<div class="placeholder">Failed to decode chord sheet data.</div>';
+    return;
+  }
+
+  const parser = new ChordSheetJS.ChordProParser();
+  const song = parser.parse(decoded);
+
+  const title = song.metadata.title;
+  const subtitle = song.metadata.subtitle || song.metadata.artist;
+
+  if (title) {
+    titleEl.textContent = title;
+    document.title = title;
+  }
+  if (subtitle) {
+    subtitleEl.textContent = subtitle;
+  } else {
+    subtitleEl.style.display = 'none';
+  }
+
+  const formatter = new ChordSheetJS.HtmlDivFormatter();
+  viewer.innerHTML = formatter.format(song);
+
+  viewer.querySelectorAll('.column').forEach(col => {
+    const chord = col.querySelector('.chord');
+    if (!chord || !chord.textContent.trim()) return;
+    const nextCol = col.nextElementSibling;
+    if (nextCol && nextCol.querySelector('.chord')?.textContent.trim()) {
+      chord.classList.add('spaced');
+    }
+  });
+
+  viewer.querySelectorAll('.row').forEach(row => {
+    const chords = row.querySelectorAll('.chord');
+    const lyrics = row.querySelectorAll('.lyrics');
+    if (chords.length && ![...chords].some(el => el.textContent.trim())) {
+      chords.forEach(el => el.remove());
+    }
+    if (lyrics.length && ![...lyrics].some(el => el.textContent.trim())) {
+      lyrics.forEach(el => el.remove());
+    }
+  });
+
+  viewer.querySelectorAll('.row').forEach(row => {
+    if (row.querySelector('.label, .comment')) return;
+    const hasContent = [...row.querySelectorAll('.chord, .lyrics')].some(el => el.textContent.trim());
+    if (!hasContent) row.remove();
+  });
+}
+
+render();
+
+const FONT_STEP = 1;
+const FONT_MIN = 10;
+const FONT_MAX = 28;
+let fontSize = parseInt(localStorage.getItem('sheet-font-size')) || 16;
+
+function applyFontSize() {
+  viewer.style.fontSize = fontSize + 'px';
+  localStorage.setItem('sheet-font-size', fontSize);
+}
+
+applyFontSize();
+
+document.getElementById('font-decrease').addEventListener('click', () => {
+  if (fontSize > FONT_MIN) { fontSize -= FONT_STEP; applyFontSize(); }
+});
+
+document.getElementById('font-increase').addEventListener('click', () => {
+  if (fontSize < FONT_MAX) { fontSize += FONT_STEP; applyFontSize(); }
+});
+</script>
+
+</body>
+</html>

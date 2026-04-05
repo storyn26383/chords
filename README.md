@@ -11,6 +11,7 @@ A minimal, mobile-friendly chord finder for ukulele and guitar. Single HTML file
 - **Score view** — optional staff notation via [abcjs](https://github.com/paulrosen/abcjs) and [Tonal.js](https://github.com/tonaljs/tonal)
 - **Enharmonic names** — shows both sharp and flat labels (e.g. C#/Db)
 - **Persistent state** — selections saved to localStorage across reloads
+- **Chord sheet viewer** — display ChordPro (.cho) format sheets via `sheet.html?data=<base64>`, powered by [ChordSheetJS](https://github.com/martijnversluis/ChordSheetJS)
 
 ## Chord Data
 
