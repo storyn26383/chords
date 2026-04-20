@@ -95,8 +95,9 @@ h1 {
 .switch-track::after {
   content: '';
   position: absolute;
-  top: 0.125rem;
+  top: 50%;
   left: 0.125rem;
+  transform: translateY(-50%);
   width: 0.875rem;
   height: 0.875rem;
   border-radius: 50%;
@@ -109,6 +110,6 @@ h1 {
 }
 
 .switch-item.active .switch-track::after {
-  transform: translateX(0.875rem);
+  transform: translateY(-50%) translateX(0.875rem);
   background: var(--card-bg);
 }
