@@ -35,3 +35,80 @@ h1 {
   margin-bottom: 1.8rem;
   letter-spacing: 0.02em;
 }
+
+.btn {
+  padding: 0.55rem 1.2rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+}
+
+.btn.active,
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--card-bg);
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.switch-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.switch-item span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.switch-track {
+  width: 2rem;
+  height: 1.125rem;
+  border-radius: 0.5625rem;
+  background: var(--border);
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.switch-track::after {
+  content: '';
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 0.2s, background 0.2s;
+}
+
+.switch-item.active .switch-track {
+  background: var(--accent);
+}
+
+.switch-item.active .switch-track::after {
+  transform: translateX(0.875rem);
+  background: var(--card-bg);
+}

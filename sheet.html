@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Chord Sheet</title>
 <link rel="stylesheet" href="shared.css">
+<script src="https://cdn.jsdelivr.net/npm/tonal@6.2.0/browser/tonal.min.js"></script>
+<script src="chord-db.js"></script>
+<script src="ui.js"></script>
+<script src="https://pianosnake.github.io/uke-chord/uke-chord.js"></script>
 <style>
   .title-group {
     min-width: 0;
@@ -14,10 +18,6 @@
   .subtitle {
     font-size: 0.9rem;
     color: var(--text-muted);
-  }
-
-  body {
-    padding-top: 7rem;
   }
 
   #viewer {
@@ -171,6 +171,67 @@
     text-align: center;
     padding: 2rem;
   }
+
+  .chord-panel {
+    width: 100%;
+    max-width: 40rem;
+    margin-bottom: 1rem;
+  }
+
+  .chord-panel-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: var(--surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.85rem;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    list-style: none;
+  }
+
+  .chord-panel-summary::-webkit-details-marker { display: none; }
+
+  .chord-panel-summary-label::before {
+    content: '▸';
+    font-size: 0.7rem;
+    margin-right: 0.375rem;
+    display: inline-block;
+    transition: transform 0.15s;
+  }
+
+  .chord-panel[open] .chord-panel-summary-label::before {
+    transform: rotate(90deg);
+  }
+
+  #chord-diagrams {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.75rem 0 0;
+  }
+
+  .chord-card {
+    background: var(--card-bg);
+    color: var(--card-text);
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 0.125rem 0.5rem var(--card-shadow);
+  }
+
+  .chord-card-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+  }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chordsheetjs@14.3.1/lib/bundle.min.js"></script>
 </head>
@@ -192,6 +253,12 @@
     </div>
   </div>
 </div>
+<details class="chord-panel" id="chord-panel">
+  <summary class="chord-panel-summary">
+    <span class="chord-panel-summary-label">Chords</span>
+  </summary>
+  <div id="chord-diagrams"></div>
+</details>
 <div id="viewer"></div>
 
 <script>
@@ -200,12 +267,6 @@ const titleEl = document.getElementById('song-title');
 const subtitleEl = document.getElementById('subtitle');
 const keySelect = document.getElementById('key-select');
 const capoDisplay = document.getElementById('capo-display');
-
-const NOTE_TO_INDEX = {
-  'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3,
-  'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8,
-  'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11,
-};
 
 const ROOTS = [
   'C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F',
@@ -262,11 +323,88 @@ function renderSong(song) {
     const hasContent = [...row.querySelectorAll('.chord, .lyrics')].some(el => el.textContent.trim());
     if (!hasContent) row.remove();
   });
+
+  currentChords = song.getChords().slice().sort((a, b) => {
+    const pa = parseChordName(a);
+    const pb = parseChordName(b);
+    const ia = pa ? ChordDb.NOTE_TO_INDEX[pa.root] ?? 999 : 999;
+    const ib = pb ? ChordDb.NOTE_TO_INDEX[pb.root] ?? 999 : 999;
+    if (ia !== ib) return ia - ib;
+    const sa = pa ? ChordDb.CHORD_TYPE_PRIORITY[pa.suffix] ?? 999 : 999;
+    const sb = pb ? ChordDb.CHORD_TYPE_PRIORITY[pb.suffix] ?? 999 : 999;
+    if (sa !== sb) return sa - sb;
+    return a.localeCompare(b);
+  });
+  renderChordPanel();
+}
+
+const UKE_STORAGE = 'uke-chord-state';
+const chordDiagrams = document.getElementById('chord-diagrams');
+
+let currentInstrument = getStoredInstrument();
+let CHORDS_MAP = {};
+let currentChords = [];
+
+function getStoredInstrument() {
+  try {
+    const state = JSON.parse(localStorage.getItem(UKE_STORAGE)) || {};
+    return state.instrument === 'guitar' ? 'guitar' : 'ukulele';
+  } catch { return 'ukulele'; }
+}
+
+function saveInstrument(inst) {
+  let state = {};
+  try { state = JSON.parse(localStorage.getItem(UKE_STORAGE)) || {}; } catch {}
+  state.instrument = inst;
+  localStorage.setItem(UKE_STORAGE, JSON.stringify(state));
+}
+
+function parseChordName(name) {
+  const match = /^([A-G][#b]?)([^\/]*)/.exec(name);
+  if (!match) return null;
+  let suffix = match[2];
+  if (suffix === '') suffix = 'major';
+  else if (suffix === 'm' || suffix === 'min') suffix = 'minor';
+  return { root: match[1], suffix };
+}
+
+function renderChordPanel() {
+  chordDiagrams.innerHTML = '';
+  currentChords.forEach(name => {
+    const parsed = parseChordName(name);
+    if (!parsed) return;
+    const data = CHORDS_MAP[parsed.root + parsed.suffix];
+    if (!data) return;
+    const sub = ChordDb.spellSub(name, data);
+    const card = document.createElement('div');
+    card.className = 'chord-card';
+    card.innerHTML =
+      `<div class="chord-card-name">${name}</div>` +
+      `<uke-chord frets="${data.frets}" fingers="${data.fingers}" sub="${sub}" position="${data.position || 0}"></uke-chord>`;
+    chordDiagrams.appendChild(card);
+  });
+}
+
+async function loadChordDb() {
+  const db = await ChordDb.fetchDb(currentInstrument);
+  CHORDS_MAP = ChordDb.buildChordMap(db, currentInstrument);
+}
+
+function setupChordPanel() {
+  const summary = document.querySelector('.chord-panel-summary');
+  const guitarSwitch = Ui.createSwitch('Guitar', currentInstrument === 'guitar', async (val) => {
+    currentInstrument = val ? 'guitar' : 'ukulele';
+    saveInstrument(currentInstrument);
+    await loadChordDb();
+    renderChordPanel();
+  });
+  guitarSwitch.addEventListener('click', (e) => e.stopPropagation());
+  summary.appendChild(guitarSwitch);
 }
 
 function updateCapo(currentRoot) {
-  const origIdx = NOTE_TO_INDEX[originalRoot];
-  const curIdx = NOTE_TO_INDEX[currentRoot];
+  const origIdx = ChordDb.NOTE_TO_INDEX[originalRoot];
+  const curIdx = ChordDb.NOTE_TO_INDEX[currentRoot];
   const capo = ((origIdx - curIdx) + 12) % 12;
   capoDisplay.textContent = `Capo: ${capo}`;
 }
@@ -277,7 +415,7 @@ function setupKeyControls(choProText) {
     parseKey(originalSong.metadata?.key) ||
     parseKey(findFallbackRoot(choProText));
 
-  if (!parsedKey || NOTE_TO_INDEX[parsedKey.root] === undefined) {
+  if (!parsedKey || ChordDb.NOTE_TO_INDEX[parsedKey.root] === undefined) {
     keySelect.disabled = true;
     capoDisplay.style.display = 'none';
     return;
@@ -346,7 +484,16 @@ function render() {
   renderSong(originalSong);
 }
 
+const topBar = document.querySelector('.top-bar');
+function syncTopBarPadding() {
+  document.body.style.paddingTop = topBar.offsetHeight + 'px';
+}
+syncTopBarPadding();
+new ResizeObserver(syncTopBarPadding).observe(topBar);
+
+setupChordPanel();
 render();
+loadChordDb().then(renderChordPanel);
 
 const FONT_STEP = 1;
 const FONT_MIN = 10;

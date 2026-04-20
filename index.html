@@ -8,6 +8,8 @@
 <script src="https://cdn.jsdelivr.net/npm/abcjs@6.4.4/dist/abcjs-basic-min.js"></script>
 <script src="https://pianosnake.github.io/uke-chord/uke-chord.js"></script>
 <link rel="stylesheet" href="shared.css">
+<script src="chord-db.js"></script>
+<script src="ui.js"></script>
 <style>
   .section-label {
     font-size: 0.75rem;
@@ -49,28 +51,7 @@
     gap: 0.3125rem;
   }
 
-  .btn {
-    padding: 0.55rem 0;
-    border: 1px solid var(--border);
-    border-radius: 0.375rem;
-    background: var(--surface);
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    cursor: pointer;
-    text-align: center;
-    transition: all 0.15s;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .btn:hover { background: var(--surface-hover); border-color: var(--border-hover); }
-
-  .btn.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--card-bg);
-    font-weight: 600;
-  }
+  .btn { padding: 0.55rem 0; }
 
   #quality-section {
     width: 100%;
@@ -128,51 +109,6 @@
     margin-bottom: 1.5rem;
   }
 
-  .switch-item {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    cursor: pointer;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .switch-item span {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-  }
-
-  .switch-track {
-    width: 2rem;
-    height: 1.125rem;
-    border-radius: 0.5625rem;
-    background: var(--border);
-    position: relative;
-    transition: background 0.2s;
-    flex-shrink: 0;
-  }
-
-  .switch-track::after {
-    content: '';
-    position: absolute;
-    top: 0.125rem;
-    left: 0.125rem;
-    width: 0.875rem;
-    height: 0.875rem;
-    border-radius: 50%;
-    background: var(--text-muted);
-    transition: transform 0.2s, background 0.2s;
-  }
-
-  .switch-item.active .switch-track {
-    background: var(--accent);
-  }
-
-  .switch-item.active .switch-track::after {
-    transform: translateX(0.875rem);
-    background: var(--card-bg);
-  }
-
   @media (max-width: 360px) {
     .root-grid, #quality-section, .section-label, #score-section { max-width: 17.5rem; }
     .category-grid { grid-template-columns: repeat(3, 1fr); }
@@ -196,15 +132,7 @@
 <div id="score-section"></div>
 
 <script>
-const CDN_URLS = {
-  ukulele: 'https://cdn.jsdelivr.net/npm/@tombatossals/chords-db/lib/ukulele.json',
-  guitar: 'https://cdn.jsdelivr.net/npm/@tombatossals/chords-db/lib/guitar.json',
-};
-const GUITAR_KEY_MAP = { 'Db': 'Csharp', 'Gb': 'Fsharp' };
 let currentInstrument = 'ukulele';
-const dbCache = {};
-
-const NOTES = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
 
 const ROOTS = [
   { name: 'C',  common: true },
@@ -281,30 +209,6 @@ let fullMode = false;
 let showScore = false;
 let allQualityBtns = [];
 
-function buildChordMap(db, instrument) {
-  CHORDS = {};
-  for (const root of NOTES) {
-    const dbKey = instrument === 'guitar' ? (GUITAR_KEY_MAP[root] || root) : root;
-    const entries = db.chords[dbKey];
-    if (!entries) continue;
-    for (const entry of entries) {
-      const pos = entry.positions[0];
-      if (!pos) continue;
-
-      const frets = pos.frets.map(f => f === -1 ? 'x' : f).join('');
-      const fingers = pos.fingers.join('');
-      const position = pos.baseFret === 1 ? 0 : pos.baseFret;
-      let sub = '';
-      if (pos.midi) {
-        let mi = 0;
-        sub = pos.frets.map(f => f === -1 ? '_' : NOTES[pos.midi[mi++] % 12]).join(',');
-      }
-
-      CHORDS[root + entry.suffix] = { frets, fingers, position, sub };
-    }
-  }
-}
-
 const rootGrid = document.getElementById('root-grid');
 const qualitySection = document.getElementById('quality-section');
 const display = document.getElementById('chord-display');
@@ -345,26 +249,14 @@ function renderRoots() {
 
 const switchesEl = document.getElementById('switches');
 
-function createSwitch(label, active, onChange) {
-  const item = document.createElement('label');
-  item.className = 'switch-item' + (active ? ' active' : '');
-  item.innerHTML = `<div class="switch-track"></div><span>${label}</span>`;
-  item.addEventListener('click', () => {
-    const next = !item.classList.contains('active');
-    item.classList.toggle('active', next);
-    onChange(next);
-  });
-  return item;
-}
-
-const fullModeSwitch = createSwitch('All chords', fullMode, val => {
+const fullModeSwitch = Ui.createSwitch('All chords', fullMode, val => {
   fullMode = val;
   renderRoots();
   renderQualities();
   saveState();
 });
 
-const scoreSwitch = createSwitch('Score', showScore, val => {
+const scoreSwitch = Ui.createSwitch('Score', showScore, val => {
   showScore = val;
   if (showScore && selectedRoot && selectedQuality) {
     renderScore(selectedRoot, selectedQuality.id);
@@ -374,7 +266,7 @@ const scoreSwitch = createSwitch('Score', showScore, val => {
   saveState();
 });
 
-const guitarSwitch = createSwitch('Guitar', currentInstrument === 'guitar', val => {
+const guitarSwitch = Ui.createSwitch('Guitar', currentInstrument === 'guitar', val => {
   switchInstrument(val ? 'guitar' : 'ukulele');
 });
 
@@ -505,19 +397,11 @@ function updateChord() {
   renderScore(selectedRoot, selectedQuality.id);
 }
 
-async function fetchDb(instrument) {
-  if (dbCache[instrument]) return dbCache[instrument];
-  const res = await fetch(CDN_URLS[instrument]);
-  const db = await res.json();
-  dbCache[instrument] = db;
-  return db;
-}
-
 async function switchInstrument(instrument) {
   currentInstrument = instrument;
   document.title = instrument === 'guitar' ? 'Guitar Chord Finder' : 'Ukulele Chord Finder';
-  const db = await fetchDb(instrument);
-  buildChordMap(db, instrument);
+  const db = await ChordDb.fetchDb(instrument);
+  CHORDS = ChordDb.buildChordMap(db, instrument);
   updateChord();
   saveState();
 }
@@ -543,8 +427,8 @@ async function switchInstrument(instrument) {
       document.title = 'Guitar Chord Finder';
     }
 
-    const db = await fetchDb(instrument);
-    buildChordMap(db, instrument);
+    const db = await ChordDb.fetchDb(instrument);
+    CHORDS = ChordDb.buildChordMap(db, instrument);
 
     const allItems = CATEGORIES.flatMap(c => c.items);
     selectedRoot = ROOTS.find(r => r.name === saved.root) || ROOTS[0];
