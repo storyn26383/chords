@@ -8,6 +8,8 @@
 <script src="https://cdn.jsdelivr.net/npm/tonal@6.2.0/browser/tonal.min.js"></script>
 <script src="chord-db.js"></script>
 <script src="ui.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tone@15.0.4/build/Tone.js"></script>
+<script src="audio.js"></script>
 <script src="https://pianosnake.github.io/uke-chord/uke-chord.js"></script>
 <style>
   .title-group {
@@ -225,6 +227,14 @@
     flex-direction: column;
     align-items: center;
     box-shadow: 0 0.125rem 0.5rem var(--card-shadow);
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.08s;
+  }
+
+  .chord-card:active {
+    transform: scale(0.97);
   }
 
   .chord-card-name {
@@ -381,6 +391,9 @@ function renderChordPanel() {
     card.innerHTML =
       `<div class="chord-card-name">${name}</div>` +
       `<uke-chord frets="${data.frets}" fingers="${data.fingers}" sub="${sub}" position="${data.position || 0}"></uke-chord>`;
+    card.addEventListener('click', () => {
+      ChordPlayer.playChord(data.midi, currentInstrument);
+    });
     chordDiagrams.appendChild(card);
   });
 }

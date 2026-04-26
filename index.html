@@ -10,6 +10,8 @@
 <link rel="stylesheet" href="shared.css">
 <script src="chord-db.js"></script>
 <script src="ui.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tone@15.0.4/build/Tone.js"></script>
+<script src="audio.js"></script>
 <style>
   .section-label {
     font-size: 0.75rem;
@@ -71,6 +73,17 @@
     align-items: center;
     justify-content: center;
     box-shadow: 0 0.25rem 1.5rem var(--card-shadow);
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.08s;
+  }
+
+  #chord-display.playable {
+    cursor: pointer;
+  }
+
+  #chord-display.playable:active {
+    transform: scale(0.98);
   }
 
   .chord-name {
@@ -394,6 +407,8 @@ function updateChord() {
   const rootDisplay = selectedRoot.label || selectedRoot.name;
   const chordName = selectedQuality.id === 'major' ? rootDisplay : rootDisplay + selectedQuality.label;
   display.innerHTML = `<div class="chord-name">${chordName}</div><uke-chord frets="${data.frets}" fingers="${data.fingers}" sub="${data.sub}" position="${data.position || 0}"></uke-chord>`;
+  display.classList.add('playable');
+  display.onclick = () => ChordPlayer.playChord(data.midi, currentInstrument);
   renderScore(selectedRoot, selectedQuality.id);
 }
 

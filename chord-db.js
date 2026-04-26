@@ -47,16 +47,17 @@
         const frets = pos.frets.map(f => f === -1 ? 'x' : f).join('');
         const fingers = pos.fingers.join('');
         const position = pos.baseFret === 1 ? 0 : pos.baseFret;
-        const midiPcs = [];
+        const midi = [];
         let mi = 0;
         for (const f of pos.frets) {
-          if (f === -1) midiPcs.push(null);
-          else if (pos.midi) midiPcs.push(pos.midi[mi++] % 12);
-          else midiPcs.push(null);
+          if (f === -1) midi.push(null);
+          else if (pos.midi) midi.push(pos.midi[mi++]);
+          else midi.push(null);
         }
+        const midiPcs = midi.map(m => m === null ? null : m % 12);
         const sub = midiPcs.map(pc => pc === null ? '_' : NOTES[pc]).join(',');
 
-        const data = { frets, fingers, position, sub, midiPcs };
+        const data = { frets, fingers, position, sub, midi, midiPcs };
         CHORDS[root + entry.suffix] = data;
         if (FLAT_TO_SHARP[root]) {
           CHORDS[FLAT_TO_SHARP[root] + entry.suffix] = data;
