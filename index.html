@@ -406,7 +406,9 @@ function updateChord() {
   if (!data) return;
   const rootDisplay = selectedRoot.label || selectedRoot.name;
   const chordName = selectedQuality.id === 'major' ? rootDisplay : rootDisplay + selectedQuality.label;
-  display.innerHTML = `<div class="chord-name">${chordName}</div><uke-chord frets="${data.frets}" fingers="${data.fingers}" sub="${data.sub}" position="${data.position || 0}"></uke-chord>`;
+  const tonalSymbol = selectedRoot.name + (TONAL_MAP[selectedQuality.id] ?? '');
+  const sub = ChordDb.spellSub(tonalSymbol, data);
+  display.innerHTML = `<div class="chord-name">${chordName}</div><uke-chord frets="${data.frets}" fingers="${data.fingers}" sub="${sub}" position="${data.position || 0}"></uke-chord>`;
   display.classList.add('playable');
   display.onclick = () => ChordPlayer.playChord(data.midi, currentInstrument);
   renderScore(selectedRoot, selectedQuality.id);
