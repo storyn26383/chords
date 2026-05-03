@@ -142,6 +142,7 @@
 <script src="https://cdn.jsdelivr.net/npm/tone@15.0.4/build/Tone.js"></script>
 <script src="https://pianosnake.github.io/uke-chord/uke-chord.js"></script>
 <script src="chord-db.js?1777255829"></script>
+<script src="omit-shapes.js?1777255829"></script>
 <script src="ui.js?1777255829"></script>
 <script src="audio.js?1777255829"></script>
 <script>
@@ -168,15 +169,18 @@ const CATEGORIES = [
     { id: 'minor', label: 'm',     common: true },
     { id: 'aug',   label: 'aug' },
     { id: 'dim',   label: 'dim' },
+    { id: 'omit3', label: '5',     ukuleleOnly: true },
   ]},
   { name: 'Seventh',   items: [
-    { id: '7',     label: '7',     common: true },
-    { id: 'maj7',  label: 'maj7',  common: true },
-    { id: 'm7',    label: 'm7',    common: true },
-    { id: 'mmaj7', label: 'mMaj7' },
-    { id: 'm7b5',  label: 'm7b5' },
-    { id: 'aug7',  label: 'aug7' },
-    { id: 'dim7',  label: 'dim7' },
+    { id: '7',      label: '7',      common: true },
+    { id: 'maj7',   label: 'maj7',   common: true },
+    { id: 'm7',     label: 'm7',     common: true },
+    { id: 'mmaj7',  label: 'mMaj7' },
+    { id: 'm7b5',   label: 'm7b5' },
+    { id: 'aug7',   label: 'aug7' },
+    { id: 'dim7',   label: 'dim7' },
+    { id: '7omit1', label: '7omit1', ukuleleOnly: true },
+    { id: '7omit5', label: '7omit5', ukuleleOnly: true },
   ]},
   { name: 'Suspended', items: [
     { id: 'sus2',  label: 'sus2' },
@@ -293,7 +297,11 @@ function renderQualities() {
   let selectedStillVisible = false;
 
   CATEGORIES.forEach(cat => {
-    const visibleItems = fullMode ? cat.items : cat.items.filter(q => q.common);
+    const visibleItems = cat.items.filter(q => {
+      if (!fullMode && !q.common) return false;
+      if (q.ukuleleOnly && currentInstrument === 'guitar') return false;
+      return true;
+    });
     if (visibleItems.length === 0) return;
 
     const wrapper = document.createElement('div');
@@ -345,6 +353,7 @@ const TONAL_MAP = {
   '7sus4': '7sus4', '6': '6', 'm6': 'm6', 'add9': 'add9',
   'madd9': 'madd9', 'dim': 'dim', 'dim7': 'dim7', 'aug': 'aug',
   'aug7': 'aug7', 'm7b5': 'm7b5',
+  'omit3': '5', '7omit5': '7',
 };
 
 function noteToAbc(note) {
@@ -401,17 +410,38 @@ function renderScore(rootObj, qualityFile) {
 
 function updateChord() {
   if (!selectedRoot || !selectedQuality) return;
-  const key = selectedRoot.name + selectedQuality.id;
-  const data = CHORDS[key];
-  if (!data) return;
+  const qid = selectedQuality.id;
+  const isOmit = qid === 'omit3' || qid === '7omit1' || qid === '7omit5';
+  const data = isOmit
+    ? OmitShapes.getOmitChordData(selectedRoot.name, qid, CHORDS)
+    : CHORDS[selectedRoot.name + qid];
+
+  if (!data) {
+    display.innerHTML = '<span class="placeholder">No voicing</span>';
+    display.classList.remove('playable');
+    display.onclick = null;
+    document.getElementById('score-section').style.display = 'none';
+    return;
+  }
+
   const rootDisplay = selectedRoot.label || selectedRoot.name;
-  const chordName = selectedQuality.id === 'major' ? rootDisplay : rootDisplay + selectedQuality.label;
-  const tonalSymbol = selectedRoot.name + (TONAL_MAP[selectedQuality.id] ?? '');
+  const chordName = qid === 'major'
+    ? rootDisplay
+    : rootDisplay + selectedQuality.label;
+
+  let tonalSymbol;
+  if (qid === '7omit1') {
+    const rIdx = ChordDb.NOTE_TO_INDEX[selectedRoot.name];
+    const flatRoot = ChordDb.NOTES[(rIdx + 4) % 12];
+    tonalSymbol = (ChordDb.FLAT_TO_SHARP[flatRoot] || flatRoot) + 'dim';
+  } else {
+    tonalSymbol = selectedRoot.name + (TONAL_MAP[qid] ?? '');
+  }
   const sub = ChordDb.spellSub(tonalSymbol, data);
   display.innerHTML = `<div class="chord-name">${chordName}</div><uke-chord frets="${data.frets}" fingers="${data.fingers}" sub="${sub}" position="${data.position || 0}"></uke-chord>`;
   display.classList.add('playable');
   display.onclick = () => ChordPlayer.playChord(data.midi, currentInstrument);
-  renderScore(selectedRoot, selectedQuality.id);
+  renderScore(selectedRoot, qid);
 }
 
 async function switchInstrument(instrument) {
@@ -419,6 +449,10 @@ async function switchInstrument(instrument) {
   document.title = instrument === 'guitar' ? 'Guitar Chord Finder' : 'Ukulele Chord Finder';
   const db = await ChordDb.fetchDb(instrument);
   CHORDS = ChordDb.buildChordMap(db, instrument);
+  if (selectedQuality?.ukuleleOnly && instrument === 'guitar') {
+    selectedQuality = CATEGORIES[0].items[0];
+  }
+  renderQualities();
   updateChord();
   saveState();
 }
@@ -450,6 +484,9 @@ async function switchInstrument(instrument) {
     const allItems = CATEGORIES.flatMap(c => c.items);
     selectedRoot = ROOTS.find(r => r.name === saved.root) || ROOTS[0];
     selectedQuality = allItems.find(q => q.id === saved.quality) || CATEGORIES[0].items[0];
+    if (selectedQuality.ukuleleOnly && instrument === 'guitar') {
+      selectedQuality = CATEGORIES[0].items[0];
+    }
 
     renderRoots();
     renderQualities();

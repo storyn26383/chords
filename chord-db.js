@@ -82,5 +82,5 @@
     }).join(',');
   }
 
-  window.ChordDb = { NOTES, NOTE_TO_INDEX, GUITAR_KEY_MAP, CDN_URLS, CHORD_TYPE_ORDER, CHORD_TYPE_PRIORITY, fetchDb, buildChordMap, spellSub };
+  window.ChordDb = { NOTES, NOTE_TO_INDEX, GUITAR_KEY_MAP, FLAT_TO_SHARP, CDN_URLS, CHORD_TYPE_ORDER, CHORD_TYPE_PRIORITY, fetchDb, buildChordMap, spellSub };
 })();
