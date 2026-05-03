@@ -76,6 +76,10 @@
     width: 3em;
   }
 
+  #viewer.guitar .chord.diagram uke-chord {
+    width: 4.5em;
+  }
+
   #viewer .chord.diagram + .lyrics:not(:empty) {
     margin-top: 0;
   }
@@ -513,6 +517,7 @@ function decorateInlineChords() {
 
 function applyChordDisplay() {
   viewer.classList.toggle('diagram-mode', chordDisplayMode === 'diagram');
+  viewer.classList.toggle('guitar', currentInstrument === 'guitar');
   viewer.querySelectorAll('.chord').forEach(el => {
     const name = el.dataset.chord;
     if (!name) return;
