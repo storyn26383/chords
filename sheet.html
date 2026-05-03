@@ -29,6 +29,10 @@
     margin-bottom: 0.5em;
   }
 
+  #viewer.diagram-mode .row {
+    align-items: flex-end;
+  }
+
   #viewer .row:last-child {
     margin-bottom: 0;
   }
@@ -47,8 +51,37 @@
     margin-right: 0.5em;
   }
 
-  #viewer .chord:after,
-  #viewer .lyrics:after {
+  #viewer .chord.playable {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #viewer .chord.playable:active {
+    opacity: 0.6;
+  }
+
+  #viewer .chord.diagram {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    vertical-align: middle;
+    margin-right: 0.25em;
+    --uke-fill: #fff;
+    --uke-text: #fff;
+    --uke-fingertext: #000;
+  }
+
+  #viewer .chord.diagram uke-chord {
+    display: inline-block;
+    width: 3em;
+  }
+
+  #viewer .chord.diagram + .lyrics:not(:empty) {
+    margin-top: 0;
+  }
+
+  #viewer .chord:empty:after,
+  #viewer .lyrics:empty:after {
     content: '\200b';
   }
 
@@ -137,6 +170,12 @@
   .font-size-controls {
     display: flex;
     gap: 0.375rem;
+    flex-shrink: 0;
+  }
+
+  #display-controls {
+    display: flex;
+    gap: 0.5rem;
     flex-shrink: 0;
   }
 
@@ -250,6 +289,7 @@
       <select class="key-select" id="key-select" disabled></select>
       <span class="capo-display" id="capo-display"></span>
     </div>
+    <div id="display-controls"></div>
     <div class="font-size-controls">
       <button id="font-decrease">&minus;</button>
       <button id="font-increase">+</button>
@@ -346,12 +386,15 @@ function renderSong(song) {
     return a.localeCompare(b);
   });
   renderChordPanel();
+  decorateInlineChords();
+  applyChordDisplay();
 }
 
 const UKE_STORAGE = 'uke-chord-state';
 const chordDiagrams = document.getElementById('chord-diagrams');
 
 let currentInstrument = getStoredInstrument();
+let chordDisplayMode = getStoredDisplayMode();
 let CHORDS_MAP = {};
 let currentChords = [];
 
@@ -369,6 +412,20 @@ function saveInstrument(inst) {
   localStorage.setItem(UKE_STORAGE, JSON.stringify(state));
 }
 
+function getStoredDisplayMode() {
+  try {
+    const state = JSON.parse(localStorage.getItem(UKE_STORAGE)) || {};
+    return state.chordDisplay === 'diagram' ? 'diagram' : 'name';
+  } catch { return 'name'; }
+}
+
+function saveDisplayMode(mode) {
+  let state = {};
+  try { state = JSON.parse(localStorage.getItem(UKE_STORAGE)) || {}; } catch {}
+  state.chordDisplay = mode;
+  localStorage.setItem(UKE_STORAGE, JSON.stringify(state));
+}
+
 function parseChordName(name) {
   const match = /^([A-G][#b]?)([^\/]*)/.exec(name);
   if (!match) return null;
@@ -378,9 +435,120 @@ function parseChordName(name) {
   return { root: match[1], suffix };
 }
 
+function chordParts(chordText) {
+  const m = chordText.match(/^([A-G][#b]?)/);
+  if (!m) return null;
+  const root = m[1];
+  let rest = chordText.slice(root.length);
+  const slashIdx = rest.indexOf('/');
+  let bass = '';
+  if (slashIdx >= 0) {
+    bass = rest.slice(slashIdx);
+    rest = rest.slice(0, slashIdx);
+  }
+  return { root, suffix: rest, bass };
+}
+
+let suffixMap = {};
+
+function buildSuffixMap(choProText, song) {
+  const map = {};
+  const sourceChords = [];
+  const re = /\[([^\]]+)\]/g;
+  let m;
+  while ((m = re.exec(choProText)) !== null) {
+    const t = m[1].trim();
+    if (t) sourceChords.push(t);
+  }
+  let renderedChords = [];
+  try {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = new ChordSheetJS.HtmlDivFormatter().format(song);
+    renderedChords = [...tmp.querySelectorAll('.chord')]
+      .map(el => el.textContent.trim())
+      .filter(t => t);
+  } catch { return map; }
+  const len = Math.min(sourceChords.length, renderedChords.length);
+  const seen = new Set();
+  for (let i = 0; i < len; i++) {
+    const src = sourceChords[i];
+    if (seen.has(src)) continue;
+    seen.add(src);
+    const orig = chordParts(src);
+    const canon = chordParts(renderedChords[i]);
+    if (!orig || !canon) continue;
+    if (orig.suffix !== canon.suffix && !(canon.suffix in map)) {
+      map[canon.suffix] = orig.suffix;
+    }
+  }
+  return map;
+}
+
+function displayChordName(name) {
+  const parts = chordParts(name);
+  if (!parts) return name;
+  const orig = suffixMap[parts.suffix];
+  return orig !== undefined ? parts.root + orig + parts.bass : name;
+}
+
+function decorateInlineChords() {
+  viewer.querySelectorAll('.chord').forEach(el => {
+    if (!el.dataset.chord) {
+      const text = el.textContent.trim();
+      if (!text) return;
+      el.dataset.chord = displayChordName(text);
+    }
+    if (el.dataset.bound) return;
+    const parsed = parseChordName(el.dataset.chord);
+    if (!parsed) return;
+    if (!CHORDS_MAP[parsed.root + parsed.suffix]) return;
+    el.classList.add('playable');
+    el.dataset.bound = '1';
+    el.addEventListener('click', () => {
+      const data = CHORDS_MAP[parsed.root + parsed.suffix];
+      if (data) ChordPlayer.playChord(data.midi, currentInstrument);
+    });
+  });
+}
+
+function applyChordDisplay() {
+  viewer.classList.toggle('diagram-mode', chordDisplayMode === 'diagram');
+  viewer.querySelectorAll('.chord').forEach(el => {
+    const name = el.dataset.chord;
+    if (!name) return;
+    if (chordDisplayMode === 'diagram') {
+      const parsed = parseChordName(name);
+      const data = parsed ? CHORDS_MAP[parsed.root + parsed.suffix] : null;
+      if (data) {
+        const sub = ChordDb.spellSub(name, data);
+        el.classList.add('diagram');
+        el.innerHTML =
+          `<span class="diagram-name">${name}</span>` +
+          `<uke-chord frets="${data.frets}" fingers="${data.fingers}" sub="${sub}" position="${data.position || 0}"></uke-chord>`;
+        const ukeEl = el.querySelector('uke-chord');
+        const fluidifySvg = () => {
+          const svg = ukeEl.shadowRoot?.querySelector('svg');
+          if (!svg) return false;
+          svg.removeAttribute('width');
+          svg.removeAttribute('height');
+          svg.style.width = '100%';
+          svg.style.height = 'auto';
+          svg.style.display = 'block';
+          return true;
+        };
+        if (!fluidifySvg()) requestAnimationFrame(fluidifySvg);
+        return;
+      }
+    }
+    el.classList.remove('diagram');
+    el.textContent = name;
+  });
+}
+
 function renderChordPanel() {
   chordDiagrams.innerHTML = '';
-  currentChords.forEach(name => {
+  currentChords.forEach(canonicalName => {
+    const name = displayChordName(canonicalName);
     const parsed = parseChordName(name);
     if (!parsed) return;
     const data = CHORDS_MAP[parsed.root + parsed.suffix];
@@ -403,16 +571,27 @@ async function loadChordDb() {
   CHORDS_MAP = ChordDb.buildChordMap(db, currentInstrument);
 }
 
-function setupChordPanel() {
-  const summary = document.querySelector('.chord-panel-summary');
+function setupInstrumentControl() {
+  const container = document.getElementById('display-controls');
   const guitarSwitch = Ui.createSwitch('Guitar', currentInstrument === 'guitar', async (val) => {
     currentInstrument = val ? 'guitar' : 'ukulele';
     saveInstrument(currentInstrument);
     await loadChordDb();
     renderChordPanel();
+    decorateInlineChords();
+    applyChordDisplay();
   });
-  guitarSwitch.addEventListener('click', (e) => e.stopPropagation());
-  summary.appendChild(guitarSwitch);
+  container.appendChild(guitarSwitch);
+}
+
+function setupDiagramControl() {
+  const container = document.getElementById('display-controls');
+  const diagramSwitch = Ui.createSwitch('Diagram', chordDisplayMode === 'diagram', (val) => {
+    chordDisplayMode = val ? 'diagram' : 'name';
+    saveDisplayMode(chordDisplayMode);
+    applyChordDisplay();
+  });
+  container.appendChild(diagramSwitch);
 }
 
 function updateCapo(currentRoot) {
@@ -479,6 +658,7 @@ function render() {
 
   const parser = new ChordSheetJS.ChordProParser();
   originalSong = parser.parse(decoded);
+  suffixMap = buildSuffixMap(decoded, originalSong);
 
   const title = originalSong.metadata.title;
   const subtitle = originalSong.metadata.subtitle || originalSong.metadata.artist;
@@ -504,9 +684,14 @@ function syncTopBarPadding() {
 syncTopBarPadding();
 new ResizeObserver(syncTopBarPadding).observe(topBar);
 
-setupChordPanel();
+setupDiagramControl();
+setupInstrumentControl();
 render();
-loadChordDb().then(renderChordPanel);
+loadChordDb().then(() => {
+  renderChordPanel();
+  decorateInlineChords();
+  applyChordDisplay();
+});
 
 const FONT_STEP = 1;
 const FONT_MIN = 10;
