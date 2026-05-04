@@ -378,6 +378,11 @@ function renderSong(song) {
     if (!hasContent) row.remove();
   });
 
+  viewer.querySelectorAll('.lyrics').forEach(el => {
+    if (!el.textContent) return;
+    el.textContent = el.textContent.replace(/ /g, ' ');
+  });
+
   currentChords = song.getChords().slice().sort((a, b) => {
     const pa = parseChordName(a);
     const pb = parseChordName(b);
