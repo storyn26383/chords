@@ -76,30 +76,35 @@
     return data;
   }
 
+  const ALIAS_MAP = {
+    '7omit1':    { offset: 4, suffix: 'dim' },
+    'm7omit1':   { offset: 3, suffix: 'major' },
+    'maj7omit1': { offset: 4, suffix: 'minor' },
+  };
+
+  const SEARCH_MAP = {
+    'omit3':     { intervals: [0, 7],     tonalSuffix: '5' },
+    '7omit5':    { intervals: [0, 4, 10], tonalSuffix: '7' },
+    'm7omit5':   { intervals: [0, 3, 10], tonalSuffix: 'm7' },
+    'maj7omit5': { intervals: [0, 4, 11], tonalSuffix: 'maj7' },
+  };
+
   function compute(rootName, qid, chordsMap) {
     const rIdx = ChordDb.NOTE_TO_INDEX[rootName];
     if (rIdx === undefined) return null;
 
-    if (qid === '7omit1') {
-      const newRoot = ChordDb.NOTES[(rIdx + 4) % 12];
-      return chordsMap[newRoot + 'dim'] || null;
+    const alias = ALIAS_MAP[qid];
+    if (alias) {
+      const newRoot = ChordDb.NOTES[(rIdx + alias.offset) % 12];
+      return chordsMap[newRoot + alias.suffix] || null;
     }
 
-    let intervals, tonalSymbol;
-    if (qid === 'omit3') {
-      intervals = [0, 7];
-      tonalSymbol = rootName + '5';
-    } else if (qid === '7omit5') {
-      intervals = [0, 4, 10];
-      tonalSymbol = rootName + '7';
-    } else {
-      return null;
-    }
-
-    const targetPcs = new Set(intervals.map(iv => (rIdx + iv) % 12));
+    const search = SEARCH_MAP[qid];
+    if (!search) return null;
+    const targetPcs = new Set(search.intervals.map(iv => (rIdx + iv) % 12));
     const combo = findUkeFingering(targetPcs);
     if (!combo) return null;
-    return comboToData(combo, tonalSymbol);
+    return comboToData(combo, rootName + search.tonalSuffix);
   }
 
   function getOmitChordData(rootName, qid, chordsMap) {

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ukulele Chord Finder</title>
-<link rel="stylesheet" href="shared.css?1777860952">
+<link rel="stylesheet" href="shared.css?1777893633">
 <style>
   .section-label {
     font-size: 0.75rem;
@@ -141,10 +141,10 @@
 <script src="https://cdn.jsdelivr.net/npm/abcjs@6.4.4/dist/abcjs-basic-min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tone@15.0.4/build/Tone.js"></script>
 <script src="https://pianosnake.github.io/uke-chord/uke-chord.js"></script>
-<script src="chord-db.js?1777860952"></script>
-<script src="omit-shapes.js?1777860952"></script>
-<script src="ui.js?1777860952"></script>
-<script src="audio.js?1777860952"></script>
+<script src="chord-db.js?1777893633"></script>
+<script src="omit-shapes.js?1777893633"></script>
+<script src="ui.js?1777893633"></script>
+<script src="audio.js?1777893633"></script>
 <script>
 let currentInstrument = 'ukulele';
 
@@ -179,8 +179,12 @@ const CATEGORIES = [
     { id: 'm7b5',   label: 'm7b5' },
     { id: 'aug7',   label: 'aug7' },
     { id: 'dim7',   label: 'dim7' },
-    { id: '7omit1', label: '7omit1', ukuleleOnly: true },
-    { id: '7omit5', label: '7omit5', ukuleleOnly: true },
+    { id: '7omit1',    label: '7omit1',    ukuleleOnly: true },
+    { id: '7omit5',    label: '7omit5',    ukuleleOnly: true },
+    { id: 'm7omit1',   label: 'm7omit1',   ukuleleOnly: true },
+    { id: 'm7omit5',   label: 'm7omit5',   ukuleleOnly: true },
+    { id: 'maj7omit1', label: 'maj7omit1', ukuleleOnly: true },
+    { id: 'maj7omit5', label: 'maj7omit5', ukuleleOnly: true },
   ]},
   { name: 'Suspended', items: [
     { id: 'sus2',  label: 'sus2' },
@@ -353,7 +357,7 @@ const TONAL_MAP = {
   '7sus4': '7sus4', '6': '6', 'm6': 'm6', 'add9': 'add9',
   'madd9': 'madd9', 'dim': 'dim', 'dim7': 'dim7', 'aug': 'aug',
   'aug7': 'aug7', 'm7b5': 'm7b5',
-  'omit3': '5', '7omit5': '7',
+  'omit3': '5', '7omit5': '7', 'm7omit5': 'm7', 'maj7omit5': 'maj7',
 };
 
 function noteToAbc(note) {
@@ -408,10 +412,32 @@ function renderScore(rootObj, qualityFile) {
   scoreSection.style.display = anyRendered ? '' : 'none';
 }
 
+const OMIT1_ALIAS = {
+  '7omit1':    { offset: 4, tonalSuffix: 'dim' },
+  'm7omit1':   { offset: 3, tonalSuffix: 'M' },
+  'maj7omit1': { offset: 4, tonalSuffix: 'm' },
+};
+
+function preferredRoot(flatRoot, tonalSuffix) {
+  const sharpRoot = ChordDb.FLAT_TO_SHARP[flatRoot];
+  if (!sharpRoot || typeof Tonal === 'undefined') return flatRoot;
+  function badness(rootName) {
+    const chord = Tonal.Chord.get(rootName + tonalSuffix);
+    if (!chord || chord.empty || !chord.notes) return Infinity;
+    let score = 0;
+    for (const n of chord.notes) {
+      if (n.length >= 3) score += 10;
+      else if (/^([CF]b|[BE]#)$/.test(n)) score += 5;
+    }
+    return score;
+  }
+  return badness(sharpRoot) < badness(flatRoot) ? sharpRoot : flatRoot;
+}
+
 function updateChord() {
   if (!selectedRoot || !selectedQuality) return;
   const qid = selectedQuality.id;
-  const isOmit = qid === 'omit3' || qid === '7omit1' || qid === '7omit5';
+  const isOmit = qid.includes('omit');
   const data = isOmit
     ? OmitShapes.getOmitChordData(selectedRoot.name, qid, CHORDS)
     : CHORDS[selectedRoot.name + qid];
@@ -430,10 +456,11 @@ function updateChord() {
     : rootDisplay + selectedQuality.label;
 
   let tonalSymbol;
-  if (qid === '7omit1') {
+  const aliasInfo = OMIT1_ALIAS[qid];
+  if (aliasInfo) {
     const rIdx = ChordDb.NOTE_TO_INDEX[selectedRoot.name];
-    const flatRoot = ChordDb.NOTES[(rIdx + 4) % 12];
-    tonalSymbol = (ChordDb.FLAT_TO_SHARP[flatRoot] || flatRoot) + 'dim';
+    const flatRoot = ChordDb.NOTES[(rIdx + aliasInfo.offset) % 12];
+    tonalSymbol = preferredRoot(flatRoot, aliasInfo.tonalSuffix) + aliasInfo.tonalSuffix;
   } else {
     tonalSymbol = selectedRoot.name + (TONAL_MAP[qid] ?? '');
   }
