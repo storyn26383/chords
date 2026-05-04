@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ukulele Chord Finder</title>
-<link rel="stylesheet" href="shared.css?1777893633">
+<link rel="stylesheet" href="shared.css?1777894375">
 <style>
   .section-label {
     font-size: 0.75rem;
@@ -141,10 +141,10 @@
 <script src="https://cdn.jsdelivr.net/npm/abcjs@6.4.4/dist/abcjs-basic-min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tone@15.0.4/build/Tone.js"></script>
 <script src="https://pianosnake.github.io/uke-chord/uke-chord.js"></script>
-<script src="chord-db.js?1777893633"></script>
-<script src="omit-shapes.js?1777893633"></script>
-<script src="ui.js?1777893633"></script>
-<script src="audio.js?1777893633"></script>
+<script src="chord-db.js?1777894375"></script>
+<script src="omit-shapes.js?1777894375"></script>
+<script src="ui.js?1777894375"></script>
+<script src="audio.js?1777894375"></script>
 <script>
 let currentInstrument = 'ukulele';
 
@@ -172,19 +172,13 @@ const CATEGORIES = [
     { id: 'omit3', label: '5',     ukuleleOnly: true },
   ]},
   { name: 'Seventh',   items: [
-    { id: '7',      label: '7',      common: true },
-    { id: 'maj7',   label: 'maj7',   common: true },
-    { id: 'm7',     label: 'm7',     common: true },
-    { id: 'mmaj7',  label: 'mMaj7' },
-    { id: 'm7b5',   label: 'm7b5' },
-    { id: 'aug7',   label: 'aug7' },
-    { id: 'dim7',   label: 'dim7' },
-    { id: '7omit1',    label: '7omit1',    ukuleleOnly: true },
-    { id: '7omit5',    label: '7omit5',    ukuleleOnly: true },
-    { id: 'm7omit1',   label: 'm7omit1',   ukuleleOnly: true },
-    { id: 'm7omit5',   label: 'm7omit5',   ukuleleOnly: true },
-    { id: 'maj7omit1', label: 'maj7omit1', ukuleleOnly: true },
-    { id: 'maj7omit5', label: 'maj7omit5', ukuleleOnly: true },
+    { id: '7',     label: '7',     common: true },
+    { id: 'maj7',  label: 'maj7',  common: true },
+    { id: 'm7',    label: 'm7',    common: true },
+    { id: 'mmaj7', label: 'mMaj7' },
+    { id: 'm7b5',  label: 'm7b5' },
+    { id: 'aug7',  label: 'aug7' },
+    { id: 'dim7',  label: 'dim7' },
   ]},
   { name: 'Suspended', items: [
     { id: 'sus2',  label: 'sus2' },
@@ -207,6 +201,13 @@ const CATEGORIES = [
   ]},
 ];
 
+const OMIT_OPTIONS = [
+  { id: 'omit1', label: 'omit1' },
+  { id: 'omit5', label: 'omit5' },
+];
+
+const OMIT_BASE_QUALITIES = new Set(['7', 'm7', 'maj7']);
+
 const STORAGE_KEY = 'uke-chord-state';
 
 function saveState() {
@@ -214,6 +215,7 @@ function saveState() {
     instrument: currentInstrument,
     root: selectedRoot?.name,
     quality: selectedQuality?.id,
+    omit: selectedOmit,
     fullMode,
     showScore,
   }));
@@ -226,6 +228,7 @@ function loadState() {
 let CHORDS = {};
 let selectedRoot = null;
 let selectedQuality = null;
+let selectedOmit = null;
 let fullMode = false;
 let showScore = false;
 let allQualityBtns = [];
@@ -329,8 +332,7 @@ function renderQualities() {
       }
       btn.addEventListener('click', () => {
         selectedQuality = q;
-        allQualityBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        renderQualities();
         updateChord();
         saveState();
       });
@@ -340,6 +342,7 @@ function renderQualities() {
 
     wrapper.appendChild(grid);
     qualitySection.appendChild(wrapper);
+    if (cat.name === 'Seventh') renderOmits();
   });
 
   if (!selectedStillVisible && allQualityBtns.length > 0) {
@@ -347,6 +350,35 @@ function renderQualities() {
     selectedQuality = CATEGORIES.flatMap(c => fullMode ? c.items : c.items.filter(q => q.common))[0];
     if (selectedRoot) updateChord();
   }
+}
+
+function renderOmits() {
+  if (currentInstrument === 'guitar') return;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'category';
+  const label = document.createElement('div');
+  label.className = 'category-label';
+  label.textContent = 'Omit';
+  wrapper.appendChild(label);
+  const grid = document.createElement('div');
+  grid.className = 'category-grid';
+  const enabled = selectedQuality && OMIT_BASE_QUALITIES.has(selectedQuality.id);
+  OMIT_OPTIONS.forEach(o => {
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.textContent = o.label;
+    btn.disabled = !enabled;
+    if (selectedOmit === o.id) btn.classList.add('active');
+    btn.addEventListener('click', () => {
+      selectedOmit = (selectedOmit === o.id) ? null : o.id;
+      renderQualities();
+      updateChord();
+      saveState();
+    });
+    grid.appendChild(btn);
+  });
+  wrapper.appendChild(grid);
+  qualitySection.appendChild(wrapper);
 }
 
 // Mapping from file-based quality names to Tonal-compatible symbols
@@ -436,7 +468,9 @@ function preferredRoot(flatRoot, tonalSuffix) {
 
 function updateChord() {
   if (!selectedRoot || !selectedQuality) return;
-  const qid = selectedQuality.id;
+  const baseQid = selectedQuality.id;
+  const omitActive = selectedOmit && OMIT_BASE_QUALITIES.has(baseQid);
+  const qid = omitActive ? baseQid + selectedOmit : baseQid;
   const isOmit = qid.includes('omit');
   const data = isOmit
     ? OmitShapes.getOmitChordData(selectedRoot.name, qid, CHORDS)
@@ -453,7 +487,7 @@ function updateChord() {
   const rootDisplay = selectedRoot.label || selectedRoot.name;
   const chordName = qid === 'major'
     ? rootDisplay
-    : rootDisplay + selectedQuality.label;
+    : rootDisplay + selectedQuality.label + (omitActive ? selectedOmit : '');
 
   let tonalSymbol;
   const aliasInfo = OMIT1_ALIAS[qid];
@@ -510,10 +544,17 @@ async function switchInstrument(instrument) {
 
     const allItems = CATEGORIES.flatMap(c => c.items);
     selectedRoot = ROOTS.find(r => r.name === saved.root) || ROOTS[0];
-    selectedQuality = allItems.find(q => q.id === saved.quality) || CATEGORIES[0].items[0];
+
+    let savedQid = saved.quality;
+    let savedOmit = saved.omit || null;
+    const legacy = savedQid?.match(/^(7|m7|maj7)(omit[15])$/);
+    if (legacy) { savedQid = legacy[1]; savedOmit = legacy[2]; }
+
+    selectedQuality = allItems.find(q => q.id === savedQid) || CATEGORIES[0].items[0];
     if (selectedQuality.ukuleleOnly && instrument === 'guitar') {
       selectedQuality = CATEGORIES[0].items[0];
     }
+    selectedOmit = (savedOmit === 'omit1' || savedOmit === 'omit5') ? savedOmit : null;
 
     renderRoots();
     renderQualities();
