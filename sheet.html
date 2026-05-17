@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Chord Sheet</title>
-<link rel="stylesheet" href="shared.css?1777894375">
+<link rel="stylesheet" href="shared.css?1779009704">
 <style>
   .title-group {
     min-width: 0;
@@ -108,6 +108,22 @@
 
   #viewer .paragraph:last-child {
     margin-bottom: 0;
+  }
+
+  #viewer .literal {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    white-space: pre-wrap;
+    line-height: 1.6;
+    overflow-x: auto;
+  }
+
+  #viewer .literal .chord {
+    font-size: inherit;
+    margin-right: 0;
+  }
+
+  #viewer.diagram-mode .literal {
+    white-space: normal;
   }
 
   .top-bar {
@@ -312,9 +328,9 @@
 <script src="https://cdn.jsdelivr.net/npm/tone@15.0.4/build/Tone.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chordsheetjs@14.3.1/lib/bundle.min.js"></script>
 <script src="https://pianosnake.github.io/uke-chord/uke-chord.js"></script>
-<script src="chord-db.js?1777894375"></script>
-<script src="ui.js?1777894375"></script>
-<script src="audio.js?1777894375"></script>
+<script src="chord-db.js?1779009704"></script>
+<script src="ui.js?1779009704"></script>
+<script src="audio.js?1779009704"></script>
 <script>
 const viewer = document.getElementById('viewer');
 const titleEl = document.getElementById('song-title');
@@ -373,7 +389,7 @@ function renderSong(song) {
   });
 
   viewer.querySelectorAll('.row').forEach(row => {
-    if (row.querySelector('.label, .comment')) return;
+    if (row.querySelector('.label, .comment, .literal')) return;
     const hasContent = [...row.querySelectorAll('.chord, .lyrics')].some(el => el.textContent.trim());
     if (!hasContent) row.remove();
   });
@@ -383,7 +399,15 @@ function renderSong(song) {
     el.textContent = el.textContent.replace(/ /g, ' ');
   });
 
-  currentChords = song.getChords().slice().sort((a, b) => {
+  decorateGridLiterals();
+
+  const gridChords = new Set();
+  viewer.querySelectorAll('.paragraph.grid .literal .chord').forEach(el => {
+    const text = el.textContent.trim();
+    if (text) gridChords.add(text);
+  });
+  const mergedChords = Array.from(new Set([...song.getChords(), ...gridChords]));
+  currentChords = mergedChords.sort((a, b) => {
     const pa = parseChordName(a);
     const pb = parseChordName(b);
     const ia = pa ? ChordDb.NOTE_TO_INDEX[pa.root] ?? 999 : 999;
@@ -438,9 +462,14 @@ function saveDisplayMode(mode) {
 function parseChordName(name) {
   const match = /^([A-G][#b]?)([^\/]*)/.exec(name);
   if (!match) return null;
-  let suffix = match[2];
-  if (suffix === '') suffix = 'major';
-  else if (suffix === 'm' || suffix === 'min') suffix = 'minor';
+  let suffix = match[2]
+    .replace(/^major/i, 'maj')
+    .replace(/^maj/i, 'maj')
+    .replace(/^minor/i, 'm')
+    .replace(/^min/i, 'm')
+    .replace(/^M(?=\d|$)/, 'maj');
+  if (suffix === '' || suffix === 'maj') suffix = 'major';
+  else if (suffix === 'm') suffix = 'minor';
   return { root: match[1], suffix };
 }
 
@@ -498,6 +527,36 @@ function displayChordName(name) {
   if (!parts) return name;
   const orig = suffixMap[parts.suffix];
   return orig !== undefined ? parts.root + orig + parts.bass : name;
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function tokenizeGridText(text) {
+  // Three alternatives, tried in order at each position:
+  //   1. chord token (anchored by [A-G])
+  //   2. a run of non-chord-non-whitespace (bars, dots, %, :|, etc.)
+  //   3. whitespace
+  // This handles tokens like "Cmaj7|" where chord and bar are not space-separated.
+  return text.replace(
+    /[A-G][#b]?[A-Za-z0-9°øØ∆Δ+()]*(?:\/[A-G][#b]?)?|[^A-G\s]+|\s+/g,
+    match => /^[A-G]/.test(match)
+      ? `<span class="chord">${escapeHtml(match)}</span>`
+      : escapeHtml(match)
+  );
+}
+
+function decorateGridLiterals() {
+  viewer.querySelectorAll('.paragraph.grid .literal').forEach(el => {
+    if (el.dataset.tokenized) return;
+    const html = [...el.childNodes].map(node => {
+      if (node.nodeName === 'BR') return '<br>';
+      return tokenizeGridText(node.textContent);
+    }).join('');
+    el.innerHTML = html;
+    el.dataset.tokenized = '1';
+  });
 }
 
 function decorateInlineChords() {
